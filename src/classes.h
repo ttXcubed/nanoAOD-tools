@@ -4,8 +4,12 @@
 #include "PhysicsTools/NanoAODTools/interface/WeightCalculatorFromHistogram.h"
 #include "PhysicsTools/NanoAODTools/interface/ReduceMantissa.h"
 
+#include "PhysicsTools/NanoAODTools/src/BTagCorrlibReader.h"
+
 PyJetResolutionWrapper jetRes;
 PyJetResolutionScaleFactorWrapper jetResScaleFactor;
 PyJetParametersWrapper jetParams;
 WeightCalculatorFromHistogram wcalc;
 ReduceMantissaToNbitsRounding red(12);
+
+BTagCorrlibReader reader;
