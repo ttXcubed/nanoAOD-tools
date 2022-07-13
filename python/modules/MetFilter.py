@@ -9,8 +9,7 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collect
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 
 class MetFilter(Module):
-    def __init__(self,globalOptions={"isData":False}, outputName=None):
-        self.globalOptions=globalOptions
+    def __init__(self,outputName=None):
         self.outputName=outputName
 
     def beginJob(self):
