@@ -11,16 +11,16 @@ def is_relevant_syst_for_shape_corr(flavor_btv, syst, jesSystsForShape=["jes"]):
     jesSysts = list(chain(*[("up_" + j, "down_" + j)
                             for j in jesSystsForShape]))
 
-    if flavor_btv == 0:
+    if flavor_btv == 5:
         return syst in ["central",
                         "up_lf", "down_lf",
                         "up_hfstats1", "down_hfstats1",
                         "up_hfstats2", "down_hfstats2"] + jesSysts
-    elif flavor_btv == 1:
+    elif flavor_btv == 4:
         return syst in ["central",
                         "up_cferr1", "down_cferr1",
                         "up_cferr2", "down_cferr2"]
-    elif flavor_btv == 2:
+    elif flavor_btv == 0:
         return syst in ["central",
                         "up_hf", "down_hf",
                         "up_lfstats1", "down_lfstats1",
@@ -35,19 +35,17 @@ class btagSFProducer(Module):
     """
 
     def __init__(
-            self, era, algo='DeepJet', selectedWPs=['shape_corr'],
+            self, era, algo='deepJet', selectedWPs=['shape_corr'],
             sfFileName=None, verbose=0, jesSystsForShape=["jes"],
             nosyst = False
     ):
         self.era = era
-        self.algo = algo.lower()
+        self.algo = algo
         self.selectedWPs = selectedWPs
         self.verbose = verbose
         self.jesSystsForShape = jesSystsForShape
         self.nosyst = nosyst
-        # CV: Return value of BTagCalibrationReader::eval_auto_bounds() is zero
-        # in case jet abs(eta) > 2.4 !!
-        self.max_abs_eta = 2.4
+        self.max_abs_eta = 2.5
         # define measurement type for each flavor
         self.inputFilePath = os.environ['CMSSW_BASE'] + \
             "/src/PhysicsTools/NanoAODTools/data/btagSF/"
@@ -55,41 +53,41 @@ class btagSFProducer(Module):
         self.measurement_types = None
         self.supported_wp = None
         supported_btagSF = {
-            'deepjet': {
+            'deepJet': {
                 '2016preVFP': {
-                    'inputFileName': "DeepJet_2016LegacySF_V1_TuneCP5_JESreduced.csv",
+                    'inputFileName': "2016preVFP_UL/btagging.json.gz",
                     'measurement_types': {
-                        0: "comb",  # b
-                        1: "comb",  # c
-                        2: "incl"   # light
+                        5: "comb",  # b
+                        4: "comb",  # c
+                        0: "incl"   # light
                     },
                     'supported_wp': ["L", "M", "T", "shape_corr"]
                 },
                 # update file name once available!
                 '2016': {
-                    'inputFileName': "DeepJet_2016LegacySF_V1_TuneCP5_JESreduced.csv",
+                    'inputFileName': "2016postVFP_UL/btagging.json.gz",
                     'measurement_types': {
-                        0: "comb",  # b
-                        1: "comb",  # c
-                        2: "incl"   # light
+                        5: "comb",  # b
+                        4: "comb",  # c
+                        0: "incl"   # light
                     },
                     'supported_wp': ["L", "M", "T", "shape_corr"]
                 },
                 '2017': {
-                    'inputFileName': "DeepJet_106XUL17SF_V2p1.csv",
+                    'inputFileName': "2017_UL/btagging.json.gz",
                     'measurement_types': {
-                        0: "comb",  # b
-                        1: "comb",  # c
-                        2: "incl"   # light
+                        5: "comb",  # b
+                        4: "comb",  # c
+                        0: "incl"   # light
                     },
                     'supported_wp': ["L", "M", "T", "shape_corr"]
                 },
                 '2018': {
-                    'inputFileName': "DeepJet_106XUL18SF_V1p1.csv",
+                    'inputFileName': "2018_UL/btagging.json.gz",
                     'measurement_types': {
-                        0: "comb",  # b
-                        1: "comb",  # c
-                        2: "incl"   # light
+                        5: "comb",  # b
+                        4: "comb",  # c
+                        0: "incl"   # light
                     },
                     'supported_wp': ["L", "M", "T", "shape_corr"]
                 },
@@ -116,13 +114,7 @@ class btagSFProducer(Module):
             if wp not in self.supported_wp:
                 raise ValueError("ERROR: Working point '%s' not supported for algo = '%s' and era = '%s'! Please choose among { %s }." % (
                     wp, self.algo, self.era, self.supported_wp))
-
-        # load libraries for accessing b-tag scale factors (SFs) from conditions database
-        for library in ["libCondFormatsBTauObjects", "libCondToolsBTau"]:
-            if library not in ROOT.gSystem.GetLibraries():
-                print("Load Library '%s'" % library.replace("lib", ""))
-                ROOT.gSystem.Load(library)
-
+        
         # define systematic uncertainties
         self.systs = []
         self.systs.append("up")
@@ -156,30 +148,20 @@ class btagSFProducer(Module):
             self.branchNames_central_and_systs[wp] = branchNames
 
     def beginJob(self):
-        # initialize BTagCalibrationReader
-        # (cf. https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagCalibration )
-        self.calibration = ROOT.BTagCalibration(
-            self.algo, os.path.join(self.inputFilePath, self.inputFileName))
+        # initialize BTagCorrlibReader
+        self.corrlibreader = ROOT.BTagCorrlibReader()
+        self.corrlibreader.loadCorrections(os.path.join(self.inputFilePath, self.inputFileName))
         self.readers = {}
         for wp in self.selectedWPs:
-            wp_btv = {"l": 0, "m": 1, "t": 2,
-                      "shape_corr": 3}.get(wp.lower(), None)
+            wp_btv = {"l": "L", "m": "M", "t": "T",
+                      "shape_corr": "shape_corr"}.get(wp.lower(), None)
             syts = None
-            if wp_btv in [0, 1, 2]:
+            if wp_btv in ["L", "M", "T"]:
                 systs = self.systs
             else:
                 systs = self.systs_shape_corr
-            v_systs = getattr(ROOT, 'vector<string>')()
-            for syst in systs:
-                v_systs.push_back(syst)
-            reader = ROOT.BTagCalibrationReader(wp_btv, 'central', v_systs)
-            for flavor_btv in [0, 1, 2]:
-                if wp == "shape_corr":
-                    reader.load(self.calibration, flavor_btv, 'iterativefit')
-                else:
-                    reader.load(self.calibration, flavor_btv,
-                                self.measurement_types[flavor_btv])
-            self.readers[wp_btv] = reader
+
+            self.readers[wp_btv] = self.corrlibreader
 
     def endJob(self):
         pass
@@ -197,36 +179,15 @@ class btagSFProducer(Module):
     def getReader(self, wp):
         """
             Get btag scale factor reader.
-            Convert working points: input is 'L', 'M', 'T', 'shape_corr' to 0, 1, 2, 3
         """
-        wp_btv = {"l": 0, "m": 1, "t": 2,
-                  "shape_corr": 3}.get(wp.lower(), None)
+        wp_btv = {"l": "L", "m": "M", "t": "T",
+                  "shape_corr": "shape_corr"}.get(wp.lower(), None)
         if wp_btv is None or wp_btv not in list(self.readers.keys()):
             if self.verbose > 0:
                 print(
                     "WARNING: Unknown working point '%s', setting b-tagging SF reader to None!" % wp)
             return None
         return self.readers[wp_btv]
-
-    def getFlavorBTV(self, flavor):
-        '''
-            Maps hadronFlavor to BTV flavor:
-            Note the flavor convention: hadronFlavor is b = 5, c = 4, f = 0
-            Convert them to the btagging group convention of 0, 1, 2
-        '''
-        flavor_btv = None
-        if abs(flavor) == 5:
-            flavor_btv = 0
-        elif abs(flavor) == 4:
-            flavor_btv = 1
-        elif abs(flavor) in [0, 1, 2, 3, 21]:
-            flavor_btv = 2
-        else:
-            if self.verbose > 0:
-                print(
-                    "WARNING: Unknown flavor '%s', setting b-tagging SF to -1!" % repr(flavor))
-            return -1.
-        return flavor_btv
 
     def getSFs(self, jet_data, syst, reader, measurement_type='auto', shape_corr=False):
         if reader is None:
@@ -246,13 +207,13 @@ class btagSFProducer(Module):
             sf = None
             if shape_corr:
                 if is_relevant_syst_for_shape_corr(flavor_btv, syst, self.jesSystsForShape):
-                    sf = reader.eval_auto_bounds(
-                        syst, flavor_btv, eta, pt, discr)
+                    sf = reader.evaluateBTagShape(self.algo+"_shape",
+                        syst, flavor_btv, abs(eta), pt, discr)
                 else:
-                    sf = reader.eval_auto_bounds(
-                        'central', flavor_btv, eta, pt, discr)
+                    sf = reader.evaluateBTagShape(self.algo+"_shape",
+                        'central', flavor_btv, abs(eta), pt, discr)
             else:
-                sf = reader.eval_auto_bounds(syst, flavor_btv, eta, pt)
+                sf = reader.evaluateBTagWorkingpoint(self.algo+"_"+self.measurement_types[flavor_btv],syst, self.selectedWPs, flavor_btv, abs(eta), pt)
             # check if SF is OK
             if sf < 0.01:
                 if self.verbose > 0:
@@ -272,7 +233,7 @@ class btagSFProducer(Module):
             discr = "btagDeepB"
         elif self.algo == "cmva":
             discr = "btagCMVA"
-        elif self.algo == "deepjet":
+        elif self.algo == "deepJet":
             discr = "btagDeepFlavB"
         else:
             raise ValueError("ERROR: Invalid algorithm '%s'!" % self.algo)
@@ -284,10 +245,10 @@ class btagSFProducer(Module):
                 self.central_and_systs_shape_corr if isShape else self.central_and_systs)
             for central_or_syst in central_and_systs:
                 if self.isJESvariation(central_or_syst):
-                    preloaded_jets = [(jet.pt, jet.eta, self.getFlavorBTV(jet.hadronFlavour), getattr(jet, discr)) 
+                    preloaded_jets = [(jet.pt, jet.eta, jet.hadronFlavour, getattr(jet, discr)) 
                                       for jet in getattr(event,"selectedJets_"+self.getSystForFwk(central_or_syst))]
                 else:
-                    preloaded_jets = [(jet.pt, jet.eta, self.getFlavorBTV(jet.hadronFlavour), getattr(jet, discr))
+                    preloaded_jets = [(jet.pt, jet.eta, jet.hadronFlavour, getattr(jet, discr))
                                       for jet in getattr(event,"selectedJets_nominal")]
 
                 scale_factors = list(self.getSFs(

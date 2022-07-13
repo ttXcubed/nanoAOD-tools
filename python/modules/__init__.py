@@ -26,6 +26,9 @@ from JetSelection import JetSelection
 from BTagSelection import BTagSelection
 from btagSFProducer import btagSFProducer
 
+#met
+from MetSelection import MetSelection
+
 #event
 from PUWeightProducer import puWeightProducer, PUWeightProducer_dict
 from GenWeightProducer import GenWeightProducer
@@ -33,4 +36,7 @@ from TopPtWeightProducer import TopPtWeightProducer
 
 #reco
 from EventObservables import EventObservables
+
+#lhe weights
+from LHEWeightProducer import LHEWeightProducer
 

@@ -103,7 +103,7 @@ def leptonSequence():
         MuonSelection(
             inputCollection=lambda event: Collection(event, "Muon"),
             outputName="tightMuons",
-            storeKinematics=[],
+            storeKinematics=["pt", "eta", "phi"],
             storeWeights=True,
             muonMinPt=minMuonPt[args.year],
             muonMaxEta=2.4,
@@ -130,7 +130,7 @@ def leptonSequence():
             electronID = ElectronSelection.INV if args.invid else ElectronSelection.WP90,
             electronMinPt = minElectronPt[args.year],
             electronMaxEta = 2.4,
-            storeKinematics=[],
+            storeKinematics=["pt", "eta", "phi"],
             storeWeights=True,
         ),
         SingleElectronTriggerSelection(
@@ -163,23 +163,27 @@ def jetSelection(jetDict):
                 jetMaxEta=2.4,
                 dRCleaning=0.4,
                 jetId=JetSelection.LOOSE,
-                storeKinematics=['pt', 'eta'],
+                storeKinematics=['pt', 'eta', 'phi', 'btagDeepFlavB'],
                 outputName="selectedJets_"+systName,
             ),
             #TODO: every ak8 will also be ak4 -> some cross cleaning required
             JetSelection(
-                inputCollection=fatjetCollection,
+                inputCollection=lambda event: Collection(event, "FatJet"),
                 leptonCollectionDRCleaning=lambda event,sys=systName: event.tightMuons+event.tightElectrons,
                 jetMinPt=200., #ak8 only stored > 175 GeV
                 jetMaxEta=2.4,
                 dRCleaning=0.8,
                 jetId=JetSelection.LOOSE,
-                storeKinematics=['pt', 'eta'],
+                storeKinematics=['pt', 'eta', 'phi', 'deepTagMD_TvsQCD'],
                 outputName="selectedFatJets_"+systName,
             )
         ])
         
-        
+        if isMC:
+	    truthKeys = ['hadronFlavour','partonFlavour']
+        else:
+            truthKeys = [] 
+
         seq.append(
             BTagSelection(
                 inputCollection=lambda event,sys=systName: getattr(event,"selectedJets_"+sys),
@@ -188,14 +192,14 @@ def jetSelection(jetDict):
                 jetMinPt=30.,
                 jetMaxEta=2.4,
                 workingpoint = BTagSelection.TIGHT,
-                storeKinematics=[],
-                storeTruthKeys = ['hadronFlavour','partonFlavour'],
+                storeKinematics=["pt", "eta", "phi"],
+                storeTruthKeys = truthKeys,
             )
         )
         
     systNames = jetDict.keys()
    
-    #at least 2 AK4 jets
+    # At least 2 AK4 jets
     seq.append(
         EventSkim(selection=lambda event, systNames=systNames: 
             any([getattr(event, "nselectedJets_"+systName) >= 2 for systName in systNames])
@@ -216,13 +220,9 @@ def jetSelection(jetDict):
         )
     )
     '''
-    #TODO: btagging SF producer might have a bug
-    '''
+
     if isMC:
         jesUncertForBtag = ['jes'+syst.replace('Total','') for syst in jesUncertaintyNames]
-        # to remove once breakdown available
-        if args.year != '2016preVFP':
-            jesUncertForBtag = ['jes']
         seq.append(
             btagSFProducer(
                 era=args.year,
@@ -230,7 +230,6 @@ def jetSelection(jetDict):
                 nosyst = args.nosys
             )
         )
-    '''
 
     
             
@@ -325,6 +324,13 @@ else:
         jetSelection(jetDict)
     )
 
+analyzerChain.extend([
+    MetSelection(
+         outputName="MET",
+         storeKinematics=['pt', 'phi']
+    ),
+    LHEWeightProducer()
+])
 
 if not args.isData:
     #analyzerChain.append(GenWeightProducer())
