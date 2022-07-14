@@ -240,7 +240,6 @@ def jetSelection(jetDict):
 analyzerChain = [
     EventSkim(selection=lambda event: event.nTrigObj > 0),
     MetFilter(
-        globalOptions=globalOptions,
         outputName="MET_filter"
     ),
 ]
