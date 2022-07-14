@@ -9,6 +9,8 @@ import numpy as np
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 
+from gen_helper import isHardProcess, isLastCopy, isPrompt, fromHardProcess
+
 class NNLeptonicTopInputs():
     def __init__(self,outputName):
         self.outputName=outputName
@@ -42,29 +44,85 @@ class NNLeptonicTopInputs():
         out.fillBranch('n'+self.outputName, values.shape[0])
         for ivar, (varName, varFct) in enumerate(self.variableList):
             out.fillBranch(self.outputName+'_'+varName,values[:,ivar])
-'''
-class NNGenLeptonicTop():
-    def __init__(self):
-        pass
+
+class GenTops():
+    def __init__(self,outputName):
+        self.outputName=outputName
         
         #check gen matched top; resolved/boosted
         #neutrino pt,kt,phi in top restframe wrt jet
         #gen top pt
         
-    def bookBranches(self,out):
-        for varName in self.variableDict.keys():
-            self.out.branch(self.outputName+'_'+varName, "F")
+    def bookBranches(self,out,skipLenBranch=True):
+        if not skipLenBranch:
+            out.branch('n'+self.outputName, "I")
+        for varName, varFct in self.variableList:
+            out.branch(self.outputName+'_'+varName, "F", lenVar='n'+self.outputName)
         
-    def queryValues(event,leptons,jets):
-        valueDict = {}
-        for varName, varFct in self.variableDict.items():
-            valueDict[varName] = varFct(event,lepton,jet)
-        return valueDict
+    def queryValues(self,event,leptons,jets):
+        genParticles = Collection(event,"GenPart")
         
-    def writeBranches(self,out,valueDict):
-        for varName in self.variableDict.keys():
-            self.out.fillBranch(self.outputName+'_'+varName,valueDict[varName])
-'''
+        def findTopIdx(p):
+            motherIdx = p.genPartIdxMother
+            while (motherIdx>=0):
+                if abs(genParticles[motherIdx].pdgId)==6:
+                    return motherIdx
+                motherIdx = genParticles[motherIdx].genPartIdxMother
+            return -1
+            
+        topDict = {}
+        
+        #NB: following will ignore hadronic taus
+        for genParticle in genParticles:
+            if abs(genParticle.pdgId)==5 and isLastCopy(genParticle) and fromHardProcess(genParticle):
+                topIdx = findTopIdx(genParticle)
+                if topIdx>=0:
+                    if topIdx not in topDict.keys():
+                        topDict[topIdx] = {'bquark':[], 'lepton': [], 'neutrino':[], 'quarks': []}
+                    topDict[topIdx]['bquark'].append(genParticle)
+            elif abs(genParticle.pdgId)<5 and abs(genParticle.pdgId)>0 and isLastCopy(genParticle) and fromHardProcess(genParticle):
+                topIdx = findTopIdx(genParticle)
+                if topIdx>=0:
+                    if topIdx not in topDict.keys():
+                        topDict[topIdx] = {'bquark':[], 'lepton': [], 'neutrino':[], 'quarks': []}
+                    topDict[topIdx]['quarks'].append(genParticle)
+                       
+            elif abs(genParticle.pdgId) in [11,13] and isPrompt(genParticle) and isLastCopy(genParticle):
+                topIdx = findTopIdx(genParticle)
+                if topIdx>=0:
+                    if topIdx not in topDict.keys():
+                        topDict[topIdx] = {'bquark':[], 'lepton': [], 'neutrino':[], 'quarks': []}
+                    topDict[topIdx]['lepton'].append(genParticle)
+                    
+            elif abs(genParticle.pdgId) in [12,14] and isPrompt(genParticle) and isLastCopy(genParticle):
+                topIdx = findTopIdx(genParticle)
+                if topIdx>=0:
+                    if topIdx not in topDict.keys():
+                        topDict[topIdx] = {'bquark':[], 'lepton': [], 'neutrino':[], 'quarks': []}
+                    topDict[topIdx]['neutrino'].append(genParticle)
+            
+        for idx in topDict.keys():
+            top = topDict[idx]
+            if len(top['quarks'])==2 and len(top['lepton'])==0 and len(top['neutrino'])==0 and len(top['bquark'])==1:
+                top['leptonic']=False
+            elif len(top['quarks'])==0 and len(top['lepton'])==1 and len(top['neutrino'])==1 and len(top['bquark'])==1:
+                top['leptonic']=True
+            else:
+                del topDict[idx]
+        print len(topDict)
+        '''
+        for ilepton, lepton in enumerate(leptons):
+            for ijet, jet in enumerate(jets):
+                for ivar, (varName, varFct) in enumerate(self.variableList):
+                    values[ilepton*len(jets)+ijet,ivar] = varFct(event,lepton,jet)
+        return values
+        '''
+        
+    def writeBranches(self,out,values):
+        out.fillBranch('n'+self.outputName, values.shape[0])
+        for ivar, (varName, varFct) in enumerate(self.variableList):
+            out.fillBranch(self.outputName+'_'+varName,values[:,ivar])
+
 
 
 class TopNNRecoInputs(Module):
@@ -78,6 +136,8 @@ class TopNNRecoInputs(Module):
         self.outputName=outputName
         
         self.leptonicTopInputs = NNLeptonicTopInputs('leptonicTopNN')
+        self.genTops = GenTops('genTop')
+        
 
     def beginJob(self):
         pass
@@ -99,6 +159,8 @@ class TopNNRecoInputs(Module):
         
         values = self.leptonicTopInputs.queryValues(event,leptons,jets)
         #print values
+        
+        self.genTops.queryValues(event,leptons,jets)
         
         self.leptonicTopInputs.writeBranches(self.out,values)
         return True
