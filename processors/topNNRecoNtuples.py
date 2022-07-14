@@ -183,9 +183,10 @@ def jetSelection(jetDict):
         
         seq.append(
             TopNNRecoInputs(
-                lambda event: event.tightMuons+event.tightElectrons,
-                lambda event,sys=systName: filter(lambda jet: jet.isBTagged,getattr(event,"selectedJets_"+sys)),
-                'topNNReco'
+                muonCollection = lambda event: event.tightMuons,
+                electronCollection = lambda event: event.tightElectrons,
+                jetCollection=lambda event,sys=systName: filter(lambda jet: jet.isBTagged,getattr(event,"selectedJets_"+sys)),
+                outputName='topNNReco'
             )
         )
         
@@ -269,7 +270,12 @@ else:
             propagateJER = False, #not recommended
             outputJetPrefix = 'jets_',
             outputMetPrefix = 'met_',
-            jetKeys=['jetId', 'nConstituents','btagDeepFlavB','hadronFlavour','partonFlavour'],
+            jetKeys=[
+                'jetId', 'nConstituents','btagDeepFlavB','hadronFlavour','partonFlavour',
+                'area','qgl','chEmEF','chFPV0EF',
+                'chHEF','neEmEF','neHEF'
+                
+                ],
         ),
     ])
 
