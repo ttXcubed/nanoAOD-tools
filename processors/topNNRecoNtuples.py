@@ -183,9 +183,8 @@ def jetSelection(jetDict):
         
         seq.append(
             TopNNRecoInputs(
-                muonCollection = lambda event: event.tightMuons,
-                electronCollection = lambda event: event.tightElectrons,
-                jetCollection=lambda event,sys=systName: filter(lambda jet: jet.isBTagged,getattr(event,"selectedJets_"+sys)),
+                bjetCollection=lambda event,sys=systName: filter(lambda jet: jet.isBTagged,getattr(event,"selectedJets_"+sys)),
+                jetCollection=lambda event,sys=systName: getattr(event,"selectedJets_"+sys),
                 outputName='topNNReco'
             )
         )

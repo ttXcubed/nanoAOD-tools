@@ -129,19 +129,132 @@ class NNLeptonicTopInputs():
             out.fillBranch(self.outputName+'_'+varName,valueDict[varName])
 
 
+class NNHadronicTopInputs():
+    def __init__(self,outputName):
+        self.outputName=outputName
+        
+        self.variableDict = {
+            #event vars
+            'rho': lambda event,bjet,jet1,jet2: event.fixedGridRhoFastjetAll,
+            'npv': lambda event,bjet,jet1,jet2: event.PV_npvsGood,
+            
+            
+            #bjet vars
+            'bjet_area': lambda event,bjet,jet1,jet2: bjet.area,
+            'bjet_btagDeepFlavB': lambda event,bjet,jet1,jet2: bjet.btagDeepFlavB,
+            'bjet_qgl': lambda event,bjet,jet1,jet2: bjet.qgl,
+            'bjet_nConstituents': lambda event,bjet,jet1,jet2: bjet.nConstituents,
+            
+            'bjet_chEmEF': lambda event,bjet,jet1,jet2: bjet.chEmEF,
+            'bjet_chFPV0EF': lambda event,bjet,jet1,jet2: bjet.chFPV0EF,
+            
+            'bjet_chHEF': lambda event,bjet,jet1,jet2: bjet.chHEF,
+            
+            'bjet_neEmEF': lambda event,bjet,jet1,jet2: bjet.neEmEF,
+            'bjet_neHEF': lambda event,bjet,jet1,jet2: bjet.neHEF,
+            
+            'bjet_pt': lambda event,bjet,jet1,jet2: bjet.pt,
+            'bjet_abseta': lambda event,bjet,jet1,jet2: math.fabs(bjet.eta),
+            'bjet_mass': lambda event,bjet,jet1,jet2: bjet.mass,
+            
+            
+            #jet vars
+            'jet_area_max': lambda event,bjet,jet1,jet2: max(jet1.area, jet2.area),
+            'jet_btagDeepFlavB_max': lambda event,bjet,jet1,jet2: max(jet1.btagDeepFlavB, jet2.btagDeepFlavB),
+            'jet_qgl_max': lambda event,bjet,jet1,jet2: max(jet1.qgl, jet2.qgl),
+            'jet_nConstituents_max': lambda event,bjet,jet1,jet2: max(jet1.nConstituents, jet2.nConstituents),
+            'jet_nConstituents_min': lambda event,bjet,jet1,jet2: min(jet1.nConstituents, jet2.nConstituents),
+            
+            'jet_chEmEF_max': lambda event,bjet,jet1,jet2: max(jet1.chEmEF, jet2.chEmEF),
+            'jet_chFPV0EF_max': lambda event,bjet,jet1,jet2: max(jet1.chFPV0EF, jet2.chFPV0EF),
+            
+            'jet_chHEF_max': lambda event,bjet,jet1,jet2: max(jet1.chHEF,jet2.chHEF),
+            
+            'jet_neEmEF_max': lambda event,bjet,jet1,jet2: max(jet1.neEmEF,jet2.neEmEF),
+            'jet_neHEF_max': lambda event,bjet,jet1,jet2: max(jet1.neHEF,jet2.neEmEF),
+            
+            'jet1_pt': lambda event,bjet,jet1,jet2: jet1.pt,
+            'jet1_abseta': lambda event,bjet,jet1,jet2: math.fabs(jet1.eta),
+            'jet1_mass': lambda event,bjet,jet1,jet2: jet1.mass,
+            
+            'jet2_pt': lambda event,bjet,jet1,jet2: jet2.pt,
+            'jet2_abseta': lambda event,bjet,jet1,jet2: math.fabs(jet2.eta),
+            'jet2_mass': lambda event,bjet,jet1,jet2: jet2.mass,
+            
+            
+            #jj correlations
+            'jj_ptrel': lambda event,bjet,jet1,jet2: jet1.pt/jet2.pt,
+            
+            'jj_dR': lambda event,bjet,jet1,jet2: deltaR(jet1,jet2),
+            'jj_dPhi': lambda event,bjet,jet1,jet2: deltaPhi(jet1,jet2),
+            'jj_dEta': lambda event,bjet,jet1,jet2: math.fabs(jet1.eta-jet2.eta),
+            
+            'jj_mass': lambda event,bjet,jet1,jet2: (jet1.p4()+jet2.p4()).M(),
+            'jj_pt': lambda event,bjet,jet1,jet2: (jet1.p4()+jet2.p4()).Pt(),
+            
+            
+            #bj correlations
+            'bj_ptrel_min': lambda event,bjet,jet1,jet2: min(jet1.pt/bjet.pt,jet2.pt/bjet.pt),
+            'bj_ptrel_max': lambda event,bjet,jet1,jet2: max(jet1.pt/bjet.pt,jet2.pt/bjet.pt),
+            
+            'bj_dR_min': lambda event,bjet,jet1,jet2: min(deltaR(bjet,jet1),deltaR(bjet,jet2)),
+            'bj_dPhi_min': lambda event,bjet,jet1,jet2: min(deltaPhi(bjet,jet1),deltaPhi(bjet,jet2)),
+            'bj_dEta_min': lambda event,bjet,jet1,jet2: min(math.fabs(bjet.eta-jet1.eta),math.fabs(bjet.eta-jet2.eta)),
+            
+            'bj_dR_max': lambda event,bjet,jet1,jet2: max(deltaR(bjet,jet1),deltaR(bjet,jet2)),
+            'bj_dPhi_max': lambda event,bjet,jet1,jet2: max(deltaPhi(bjet,jet1),deltaPhi(bjet,jet2)),
+            'bj_dEta_max': lambda event,bjet,jet1,jet2: max(math.fabs(bjet.eta-jet1.eta),math.fabs(bjet.eta-jet2.eta)),
+            
+            'bj_mass_min': lambda event,bjet,jet1,jet2: min((bjet.p4()+jet1.p4()).M(),(bjet.p4()+jet2.p4()).M()),
+            'bj_mass_max': lambda event,bjet,jet1,jet2: max((bjet.p4()+jet1.p4()).M(),(bjet.p4()+jet2.p4()).M()),
+            
+            'bj_pt_min': lambda event,bjet,jet1,jet2: min((bjet.p4()+jet1.p4()).Pt(),(bjet.p4()+jet2.p4()).Pt()),
+            'bj_pt_max': lambda event,bjet,jet1,jet2: max((bjet.p4()+jet1.p4()).Pt(),(bjet.p4()+jet2.p4()).Pt()),
+            
+            
+            #bjj correlations
+            'bjj_mass': lambda event,bjet,jet1,jet2: (bjet.p4()+jet1.p4()+jet2.p4()).M(),
+            'bjj_pt': lambda event,bjet,jet1,jet2: (bjet.p4()+jet1.p4()+jet2.p4()).Pt(),
+            
+        }
+    
+    def bookBranches(self,out):
+        out.branch(self.getLenVarName(), "I")
+        for varName in self.variableDict.keys():
+            out.branch(self.outputName+'_'+varName, "F", lenVar=self.getLenVarName())
+            
+            
+    def getLenVarName(self):
+        return 'n'+self.outputName
+        
+    def queryValues(self,event,jetCombinations):
+        valueDict = {
+            varName: np.zeros(len(jetCombinations),dtype=np.float32) for varName in self.variableDict.keys()
+        }
+        
+        for icomb, (bjet, jet1, jet2) in enumerate(jetCombinations):
+            for varName, varFct in self.variableDict.items():
+                valueDict[varName][icomb] = varFct(event, bjet, jet1, jet2)
+                
+        return valueDict
+        
+    def writeBranches(self,out,valueDict):
+        out.fillBranch('n'+self.outputName, len(valueDict.values()[0]))
+        for varName in self.variableDict.keys():
+            out.fillBranch(self.outputName+'_'+varName,valueDict[varName])
+
+
 class TopNNRecoInputs(Module):
     def __init__(self,
-        muonCollection,
-        electronCollection,
+        bjetCollection,
         jetCollection,
         outputName,
     ):
-        self.muonCollection = muonCollection
-        self.electronCollection = electronCollection
+        self.bjetCollection = bjetCollection
         self.jetCollection = jetCollection
         self.outputName=outputName
         
-        self.leptonicTopInputs = NNLeptonicTopInputs(self.outputName)
+        self.hadronicTopInputs = NNHadronicTopInputs(self.outputName)
 
     def beginJob(self):
         pass
@@ -151,13 +264,12 @@ class TopNNRecoInputs(Module):
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
-        self.leptonicTopInputs.bookBranches(self.out)
+        self.hadronicTopInputs.bookBranches(self.out)
         
-        self.out.branch(self.outputName+'_gen_dRMatch', "F", lenVar=self.leptonicTopInputs.getLenVarName())
-        self.out.branch(self.outputName+'_gen_leptonPtMatch', "F", lenVar=self.leptonicTopInputs.getLenVarName())
-        self.out.branch(self.outputName+'_gen_jetPtMatch', "F", lenVar=self.leptonicTopInputs.getLenVarName())
+        self.out.branch(self.outputName+'_gen_dRMatch', "F", lenVar=self.hadronicTopInputs.getLenVarName())
+        self.out.branch(self.outputName+'_gen_bjetPtMatch', "F", lenVar=self.hadronicTopInputs.getLenVarName())
         
-        self.out.branch(self.outputName+'_gen_topPt', "F", lenVar=self.leptonicTopInputs.getLenVarName())
+        self.out.branch(self.outputName+'_gen_topPt', "F", lenVar=self.hadronicTopInputs.getLenVarName())
 
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
@@ -208,7 +320,9 @@ class TopNNRecoInputs(Module):
         for idx in topDict.keys():
             top = topDict[idx]
             if len(top['quarks'])==2 and len(top['lepton'])==0 and len(top['neutrino'])==0 and len(top['bquark'])==1:
+                top['quarks'] = sorted(top['quarks'],key=lambda x: x.pt, reverse=True) #sort by pT like jets
                 hadronicTops.append(top)
+                
             elif len(top['quarks'])==0 and len(top['lepton'])==1 and len(top['neutrino'])==1 and len(top['bquark'])==1:
                 leptonicTops.append(top)
             else:
@@ -224,57 +338,74 @@ class TopNNRecoInputs(Module):
                 #NB: can do some filtering here if needed; ie. min/max mT
                 combinations.append([lepton,jet])
         return combinations
+        
+    def makeJetCombinations(self, bjets, jets):
+        combinations = []
+        
+        # sort by pT so that pt(jet1)>pt(jet2)
+        jets = sorted(jets,key=lambda x: x.pt,reverse=True)
+        
+        for bjet in bjets:
+            for i,jet1 in enumerate(jets):
+                for j,jet2 in enumerate(jets[i+1:]):
+                
+                    # remove potential double counting if bjets/jets are not mutually exclusive
+                    if deltaR(bjet,jet1)<0.4:
+                        continue
+                    if deltaR(bjet,jet2)<0.4:
+                        continue
+                        
+                    combinations.append([bjet,jet1,jet2])
+                    
+        #optional only keep up to 10 closest combinations
+        #combinations = sorted(combinations,key = lambda x: math.fabs(172.5-(x[0].p4()+x[1].p4()+x[2].p4()).M()))
+        #combinations = combinations[:10]
+        
+        return combinations
 
     def analyze(self, event):
-        muons = self.muonCollection(event)
-        for muon in muons:
-            setattr(muon,'isMuon',True)
-            setattr(muon,'isElectron',False)
-        electrons = self.electronCollection(event)
-        for electron in electrons:
-            setattr(electron,'isMuon',False)
-            setattr(electron,'isElectron',True)
-            
-        leptons = muons+electrons
         
-       
+        bjets = self.bjetCollection(event)
         jets = self.jetCollection(event)
         
-        leptonJetCombinations = self.makeLeptonJetCombinations(leptons,jets)
+        jetCombinations = self.makeJetCombinations(bjets,jets)
         
-        valueDict = self.leptonicTopInputs.queryValues(event,leptonJetCombinations)
         
-        genLeptonicTopDecays = self.getGenLevelTopDecays(event)["leptonic"]
+        valueDict = self.hadronicTopInputs.queryValues(event,jetCombinations)
         
-        gen_dRMatch = 10.*np.ones(len(leptonJetCombinations),dtype=np.float32)
-        gen_leptonPtMatch = np.zeros(len(leptonJetCombinations),dtype=np.float32)
-        gen_jetPtMatch = np.zeros(len(leptonJetCombinations),dtype=np.float32)
-        gen_topPt = np.zeros(len(leptonJetCombinations),dtype=np.float32)
+        genHadronicTopDecays = self.getGenLevelTopDecays(event)["hadronic"]
         
-        for icomb, (lepton, jet) in enumerate(leptonJetCombinations):
-            for genLeptonicTopDecay in genLeptonicTopDecays:
-                genBquark = genLeptonicTopDecay['bquark'][0]
-                genLepton = genLeptonicTopDecay['lepton'][0]
-                #genNeutrino = genLeptonicTopDecay['neutrino'][0]
-                genTopQuark =  genLeptonicTopDecay['top']
+        gen_dRMatch = 10.*np.ones(len(jetCombinations),dtype=np.float32)
+        gen_bjetPtMatch = np.zeros(len(jetCombinations),dtype=np.float32)
+        gen_topPt = np.zeros(len(jetCombinations),dtype=np.float32)
+        
+        for icomb, (bjet, jet1, jet2) in enumerate(jetCombinations):
+            for genHadronicTopDecay in genHadronicTopDecays:
+                genBquark = genHadronicTopDecay['bquark'][0]
+                genQuark1 = genHadronicTopDecay['quarks'][0]
+                genQuark2 = genHadronicTopDecay['quarks'][1]
+                genTopQuark =  genHadronicTopDecay['top']
                 
-                dRLepton = deltaR(lepton,genLepton)
-                dRJet = deltaR(jet,genBquark)
+                dRbjet = deltaR(bjet,genBquark)
+                if deltaR(jet1,genQuark1)<deltaR(jet1,genQuark2):
+                    dRjet1 = deltaR(jet1,genQuark1)
+                    dRjet2 = deltaR(jet2,genQuark2)
+                else:
+                    dRjet1 = deltaR(jet1,genQuark2)
+                    dRjet2 = deltaR(jet2,genQuark1)
 
-                #bias matching towards lepton since jets are less precise
-                dRMatch = math.sqrt((dRLepton/0.1)**2+(dRJet/0.4)**2)
+
+                dRMatch = math.sqrt((dRbjet)**2+(dRjet1)**2+(dRjet2)**2)
                 
                 if dRMatch<gen_dRMatch[icomb]:
                     gen_dRMatch[icomb] = dRMatch
-                    gen_leptonPtMatch[icomb] = lepton.pt/genLepton.pt
-                    gen_jetPtMatch[icomb] = jet.pt/genBquark.pt
+                    gen_bjetPtMatch[icomb] = bjet.pt/genBquark.pt
                     gen_topPt[icomb] = genTopQuark.pt
                     
-        self.leptonicTopInputs.writeBranches(self.out,valueDict)
+        self.hadronicTopInputs.writeBranches(self.out,valueDict)
         
         self.out.fillBranch(self.outputName+'_gen_dRMatch', gen_dRMatch)
-        self.out.fillBranch(self.outputName+'_gen_leptonPtMatch', gen_leptonPtMatch)
-        self.out.fillBranch(self.outputName+'_gen_jetPtMatch', gen_jetPtMatch)
+        self.out.fillBranch(self.outputName+'_gen_bjetPtMatch', gen_bjetPtMatch)
         self.out.fillBranch(self.outputName+'_gen_topPt', gen_topPt)
         
         return True
