@@ -133,6 +133,28 @@ class NNHadronicTopInputs():
     def __init__(self,outputName):
         self.outputName=outputName
         
+        def minAngleInBJJ(bjet, jet1, jet2):
+            bjjP4 = bjet.p4()+jet1.p4()+jet2.p4()
+            bjetP4 = bjet.p4()
+            bjetP4.Boost(-bjjP4.BoostVector())
+            jet1P4 = jet1.p4()
+            jet1P4.Boost(-bjjP4.BoostVector())
+            jet2P4 = jet2.p4()
+            jet2P4.Boost(-bjjP4.BoostVector())
+            
+            return min([bjetP4.Angle(jet1P4.Vect()),bjetP4.Angle(jet2P4.Vect()),jet1P4.Angle(jet1P4.Vect())])
+            
+        def maxAngleInBJJ(bjet, jet1, jet2):
+            bjjP4 = bjet.p4()+jet1.p4()+jet2.p4()
+            bjetP4 = bjet.p4()
+            bjetP4.Boost(-bjjP4.BoostVector())
+            jet1P4 = jet1.p4()
+            jet1P4.Boost(-bjjP4.BoostVector())
+            jet2P4 = jet2.p4()
+            jet2P4.Boost(-bjjP4.BoostVector())
+            
+            return max([bjetP4.Angle(jet1P4.Vect()),bjetP4.Angle(jet2P4.Vect()),jet1P4.Angle(jet1P4.Vect())])
+        
         self.variableDict = {
             #event vars
             'rho': lambda event,bjet,jet1,jet2: event.fixedGridRhoFastjetAll,
@@ -142,6 +164,9 @@ class NNHadronicTopInputs():
             #bjet vars
             'bjet_area': lambda event,bjet,jet1,jet2: bjet.area,
             'bjet_btagDeepFlavB': lambda event,bjet,jet1,jet2: bjet.btagDeepFlavB,
+            #'bjet_btagDeepFlavCvB':lambda event,bjet,jet1,jet2: bjet.btagDeepFlavCvB,
+            #'bjet_btagDeepFlavCvL':lambda event,bjet,jet1,jet2: bjet.btagDeepFlavCvL,
+            #'bjet_btagDeepFlavQG':lambda event,bjet,jet1,jet2: bjet.btagDeepFlavQG,
             'bjet_qgl': lambda event,bjet,jet1,jet2: bjet.qgl,
             'bjet_nConstituents': lambda event,bjet,jet1,jet2: bjet.nConstituents,
             
@@ -153,6 +178,7 @@ class NNHadronicTopInputs():
             'bjet_neEmEF': lambda event,bjet,jet1,jet2: bjet.neEmEF,
             'bjet_neHEF': lambda event,bjet,jet1,jet2: bjet.neHEF,
             
+            
             'bjet_pt': lambda event,bjet,jet1,jet2: bjet.pt,
             'bjet_abseta': lambda event,bjet,jet1,jet2: math.fabs(bjet.eta),
             'bjet_mass': lambda event,bjet,jet1,jet2: bjet.mass,
@@ -161,7 +187,13 @@ class NNHadronicTopInputs():
             #jet vars
             'jet_area_max': lambda event,bjet,jet1,jet2: max(jet1.area, jet2.area),
             'jet_btagDeepFlavB_max': lambda event,bjet,jet1,jet2: max(jet1.btagDeepFlavB, jet2.btagDeepFlavB),
+            #'jet_btagDeepFlavCvB_max':lambda event,bjet,jet1,jet2: max(jet1.btagDeepFlavCvB,jet2.btagDeepFlavCvB),
+            #'jet_btagDeepFlavCvL_max':lambda event,bjet,jet1,jet2: max(jet1.btagDeepFlavCvL,jet2.btagDeepFlavCvL),
+            #'jet_btagDeepFlavQG_max':lambda event,bjet,jet1,jet2: bjet.btagDeepFlavQG,
+            
+            
             'jet_qgl_max': lambda event,bjet,jet1,jet2: max(jet1.qgl, jet2.qgl),
+            'jet_qgl_min': lambda event,bjet,jet1,jet2: min(jet1.qgl, jet2.qgl),
             'jet_nConstituents_max': lambda event,bjet,jet1,jet2: max(jet1.nConstituents, jet2.nConstituents),
             'jet_nConstituents_min': lambda event,bjet,jet1,jet2: min(jet1.nConstituents, jet2.nConstituents),
             
@@ -215,7 +247,8 @@ class NNHadronicTopInputs():
             #bjj correlations
             'bjj_mass': lambda event,bjet,jet1,jet2: (bjet.p4()+jet1.p4()+jet2.p4()).M(),
             'bjj_pt': lambda event,bjet,jet1,jet2: (bjet.p4()+jet1.p4()+jet2.p4()).Pt(),
-            
+            'bjj_min_angle': lambda event,bjet,jet1,jet2: minAngleInBJJ(bjet,jet1,jet2),
+            'bjj_max_angle': lambda event,bjet,jet1,jet2: maxAngleInBJJ(bjet,jet1,jet2)
         }
     
     def bookBranches(self,out):
@@ -267,6 +300,11 @@ class TopNNRecoInputs(Module):
         self.hadronicTopInputs.bookBranches(self.out)
         
         self.out.branch(self.outputName+'_gen_dRMatch', "F", lenVar=self.hadronicTopInputs.getLenVarName())
+        self.out.branch(self.outputName+'_gen_dRTopMatch', "F", lenVar=self.hadronicTopInputs.getLenVarName())
+        self.out.branch(self.outputName+'_gen_dRBJetMatch', "F", lenVar=self.hadronicTopInputs.getLenVarName())
+        self.out.branch(self.outputName+'_gen_dRJet1Match', "F", lenVar=self.hadronicTopInputs.getLenVarName())
+        self.out.branch(self.outputName+'_gen_dRJet2Match', "F", lenVar=self.hadronicTopInputs.getLenVarName())
+        
         self.out.branch(self.outputName+'_gen_bjetPtMatch', "F", lenVar=self.hadronicTopInputs.getLenVarName())
         
         self.out.branch(self.outputName+'_gen_topPt', "F", lenVar=self.hadronicTopInputs.getLenVarName())
@@ -355,6 +393,10 @@ class TopNNRecoInputs(Module):
                     if deltaR(bjet,jet2)<0.4:
                         continue
                         
+                    bjjMass = (bjet.p4()+jet1.p4()+jet2.p4()).M()
+                    if bjjMass<100. or bjjMass>300.:
+                        continue
+                        
                     combinations.append([bjet,jet1,jet2])
                     
         #optional only keep up to 10 closest combinations
@@ -376,6 +418,13 @@ class TopNNRecoInputs(Module):
         genHadronicTopDecays = self.getGenLevelTopDecays(event)["hadronic"]
         
         gen_dRMatch = 10.*np.ones(len(jetCombinations),dtype=np.float32)
+        
+        gen_dRTopMatch = 10.*np.ones(len(jetCombinations),dtype=np.float32)
+        gen_dRBJetMatch = 10.*np.ones(len(jetCombinations),dtype=np.float32)
+        gen_dRJet1Match = 10.*np.ones(len(jetCombinations),dtype=np.float32)
+        gen_dRJet2Match = 10.*np.ones(len(jetCombinations),dtype=np.float32)
+        
+        
         gen_bjetPtMatch = np.zeros(len(jetCombinations),dtype=np.float32)
         gen_topPt = np.zeros(len(jetCombinations),dtype=np.float32)
         
@@ -393,18 +442,31 @@ class TopNNRecoInputs(Module):
                 else:
                     dRjet1 = deltaR(jet1,genQuark2)
                     dRjet2 = deltaR(jet2,genQuark1)
-
+                    
 
                 dRMatch = math.sqrt((dRbjet)**2+(dRjet1)**2+(dRjet2)**2)
                 
                 if dRMatch<gen_dRMatch[icomb]:
                     gen_dRMatch[icomb] = dRMatch
+                    gen_dRBJetMatch[icomb] = dRbjet
+                    gen_dRJet1Match[icomb] = dRjet1
+                    gen_dRJet2Match[icomb] = dRjet2
+                    
                     gen_bjetPtMatch[icomb] = bjet.pt/genBquark.pt
                     gen_topPt[icomb] = genTopQuark.pt
+                    
+                    topP4 = (bjet.p4()+jet1.p4()+jet2.p4())
+                    gen_dRTopMatch[icomb] = topP4.DeltaR(genTopQuark.p4())
                     
         self.hadronicTopInputs.writeBranches(self.out,valueDict)
         
         self.out.fillBranch(self.outputName+'_gen_dRMatch', gen_dRMatch)
+        self.out.fillBranch(self.outputName+'_gen_dRTopMatch', gen_dRTopMatch)
+        
+        self.out.fillBranch(self.outputName+'_gen_dRBJetMatch', gen_dRBJetMatch)
+        self.out.fillBranch(self.outputName+'_gen_dRJet1Match', gen_dRJet1Match)
+        self.out.fillBranch(self.outputName+'_gen_dRJet2Match', gen_dRJet2Match)
+        
         self.out.fillBranch(self.outputName+'_gen_bjetPtMatch', gen_bjetPtMatch)
         self.out.fillBranch(self.outputName+'_gen_topPt', gen_topPt)
         
