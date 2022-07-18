@@ -15,12 +15,15 @@ function run_test()
     scram b || return 1
     
     echo
-    echo "==================== 2017 ==============="
+    echo "==================== MC ==============="
     python PhysicsTools/NanoAODTools/processors/ttX3.py --year 2017 --input=https://github.com/ttXcubed/test-files/raw/main/nanoAODv9UL/TTTo2L2Nu_HT500Njet7_TuneCP5_13TeV-powheg-pythia8_2017.root . || return 1
 
 
     echo "==================== data ==============="
     python PhysicsTools/NanoAODTools/processors/ttX3.py --year 2017 --isData --input=https://github.com/ttXcubed/test-files/raw/main/nanoAODv9UL_data/MuonEG_Run2017B.root . || return 1
+
+    echo "==================== topNNRecoNtuples ==============="
+    python PhysicsTools/NanoAODTools/processors/topNNRecoNtuples.py --year 2017 --input=https://github.com/ttXcubed/test-files/raw/main/nanoAODv9UL/TTTo2L2Nu_HT500Njet7_TuneCP5_13TeV-powheg-pythia8_2017.root . || return 1
 
     
     echo "==================== done ====================="
