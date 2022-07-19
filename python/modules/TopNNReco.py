@@ -43,11 +43,11 @@ class NNLeptonicTopInputs():
             
             #lepton vars
             'lepton_pt': lambda event,lepton,jet: lepton.pt,
-            'lepton_abseta': lambda event,lepton,jet: math.fabs(lepton.pt),
+            'lepton_abseta': lambda event,lepton,jet: math.fabs(lepton.eta),
             
             'lepton_dxy': lambda event,lepton,jet:lepton.dxy,
             'lepton_dxysig': lambda event,lepton,jet:lepton.dxy/(1e-4+math.fabs(lepton.dxyErr)),
-            'lepton_dz': lambda event,lepton,jet:lepton.dxy,
+            'lepton_dz': lambda event,lepton,jet:lepton.dz,
             'lepton_dzsig': lambda event,lepton,jet:lepton.dz/(1e-4+math.fabs(lepton.dzErr)),
             
             'lepton_isMuon': lambda event,lepton,jet:1. if lepton.isMuon else 0.,
