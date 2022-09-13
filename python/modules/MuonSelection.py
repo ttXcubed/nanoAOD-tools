@@ -249,9 +249,12 @@ class MuonSelection(Module):
         for outputName in self.outputName_list:
 		self.out.branch("n"+outputName, "I")
 
-		self.out.branch(outputName+"_leptonFlavour","I",lenVar="n"+outputName)
 		for variable in self.storeKinematics:
-		    self.out.branch(outputName+"_"+variable,"F",lenVar="n"+outputName)
+		    if variable=='genPartFlav':
+		    	if not Module.globalOptions["isData"]:
+		    		self.out.branch(outputName+"_"+variable,"F",lenVar="n"+outputName)
+		    	else: continue	
+		    else: self.out.branch(outputName+"_"+variable,"F",lenVar="n"+outputName)
 		
 		if not Module.globalOptions["isData"] and self.storeWeights:
 		    self.out.branch(outputName+"_weight_id_nominal","F")
@@ -330,7 +333,11 @@ class MuonSelection(Module):
 		self.out.fillBranch("n"+outputName,len(selectedMuons[muon_ID]))
 		
 		for variable in self.storeKinematics:
-		    self.out.fillBranch(outputName+"_"+variable,map(lambda muon: getattr(muon,variable),selectedMuons[muon_ID]))
+		    if variable=='genPartFlav':
+		    	if not Module.globalOptions["isData"]:
+			    self.out.fillBranch(outputName+"_"+variable,map(lambda muon: getattr(muon,variable),selectedMuons[muon_ID]))
+		        else: continue
+		    else: self.out.fillBranch(outputName+"_"+variable,map(lambda muon: getattr(muon,variable),selectedMuons[muon_ID]))
 		    
 		if not Module.globalOptions["isData"] and self.storeWeights:
 		    self.out.fillBranch(outputName+"_weight_id_nominal", weight_id_nominal)

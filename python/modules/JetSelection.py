@@ -70,6 +70,8 @@ class JetSelection(Module):
 		        self.out.branch(outputName+"_particleNet_QCD", "F", lenVar="n"+outputName)
 		        self.out.branch(outputName+"_particleNet_mass", "F", lenVar="n"+outputName)
 		        self.out.branch(outputName+"_btagDeepB", "F", lenVar="n"+outputName)
+		        self.out.branch(outputName+"_tau2", "F", lenVar="n"+outputName)
+		        self.out.branch(outputName+"_tau3", "F", lenVar="n"+outputName)
 		else:
 			self.out.branch(outputName+"_genJetIdx", "I", lenVar="n"+outputName)
 			#self.out.branch(outputName+"_HT", "F")
@@ -148,6 +150,8 @@ class JetSelection(Module):
 			self.out.fillBranch(outputName+"_particleNet_QCD", map(lambda jet: jet.particleNet_WvsQCD, jet_list))
 			self.out.fillBranch(outputName+"_particleNet_mass", map(lambda jet: jet.particleNet_mass, jet_list))
 			self.out.fillBranch(outputName+"_btagDeepB", map(lambda jet: jet.btagDeepB, jet_list)) 
+			self.out.fillBranch(outputName+"_tau2", map(lambda jet: jet.tau2, jet_list)) 
+			self.out.fillBranch(outputName+"_tau3", map(lambda jet: jet.tau3, jet_list)) 
 			#print("jet fat idxtogen ", list(map(lambda jet: getattr(jet, 'genJetAK8Idx'), jet_list)))
 		else: 
 			self.out.fillBranch(outputName+"_genJetIdx", map(lambda jet: jet.genJetIdx, jet_list))

@@ -27,6 +27,7 @@ class ElectronSelection(Module):
         electronMaxEta = 2.4,
         storeKinematics= [] ,#['pt','eta'],
         storeWeights=False,
+        flagMC=True
     ):
 
         self.inputCollection = inputCollection
@@ -36,7 +37,7 @@ class ElectronSelection(Module):
         self.storeKinematics = storeKinematics
         self.storeWeights = storeWeights
         self.triggerMatch = triggerMatch
-        
+        self.flagMC = flagMC
         self.triggerObjectCollection = lambda event: Collection(event, "TrigObj") if triggerMatch else lambda event: []
 
 	'''
@@ -91,9 +92,13 @@ class ElectronSelection(Module):
 		    self.out.branch(outputName+"_weight_id_down","F")
 
 		for variable in self.storeKinematics:
-		    self.out.branch(outputName+"_"+variable,"F",lenVar="n"+outputName)
-
-
+		    if variable=='genPartFlav':
+		    	if not Module.globalOptions["isData"]:
+		    		self.out.branch(outputName+"_"+variable,"F",lenVar="n"+outputName)
+			else: continue
+		    else: self.out.branch(outputName+"_"+variable,"F",lenVar="n"+outputName)
+			
+			
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
 
@@ -188,7 +193,14 @@ class ElectronSelection(Module):
 
 
 		for variable in self.storeKinematics:
-		    self.out.fillBranch(outputName+"_"+variable,map(lambda electron: getattr(electron,variable), selectedElectrons[electron_mvaID]))
+		    if variable=='genPartFlav':
+		    	if not Module.globalOptions["isData"]:
+		    		self.out.fillBranch(outputName+"_"+variable,map(lambda electron: getattr(electron,variable), selectedElectrons[electron_mvaID]))
+		    	else:
+		    		continue
+	    	    else:
+		    	self.out.fillBranch(outputName+"_"+variable,map(lambda electron: getattr(electron,variable), selectedElectrons[electron_mvaID]))		    	
+		    
 		    #print list(map(lambda electron: getattr(electron,variable), selectedElectrons))
 
 		setattr(event,outputName,selectedElectrons[electron_mvaID])

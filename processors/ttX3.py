@@ -103,11 +103,10 @@ def leptonSequence():
         MuonSelection(
             inputCollection=lambda event: Collection(event, "Muon"),
             outputName_list=["tightMuons","mediumMuons","looseMuons"],
-            storeKinematics=['pt','eta','charge','phi','mass'],
+            storeKinematics=['pt','eta','charge','phi','mass', 'pfRelIso04_all', 'looseId', 'mediumId', 'tightId', 'genPartFlav'],
             storeWeights=True,
             muonMinPt=minMuonPt[args.year],
             muonMaxEta=2.4,
-            triggerMatch=True,
             #muonID= MuonSelection.TIGHT,
             #muonIso= MuonSelection.INV if args.invid else MuonSelection.TIGHT,
         ),
@@ -126,7 +125,7 @@ def leptonSequence():
             #electronID = ElectronSelection.INV if args.invid else ElectronSelection.WP90,
             electronMinPt = minElectronPt[args.year],
             electronMaxEta = 2.4,
-            storeKinematics=['pt','eta','charge','phi','mass'],
+            storeKinematics=['pt','eta','charge','phi','mass', 'mvaFall17V2Iso_WP80', 'mvaFall17V2Iso_WP90', 'mvaFall17V2Iso_WPL', 'genPartFlav'],
             storeWeights=True,
         ),
 
@@ -139,8 +138,8 @@ def leptonSequence():
         #),
 	
 	#EventSkim(selection=lambda event: (len(event.tightMuons) > 0 or len(event.tightElectrons)) > 0 ),
-	#EventSkim(selection=lambda event: (len(event.looseMuons) > 0 or len(event.looseElectrons)) > 0 ),
-	EventSkim(selection=lambda event: (len(event.looseMuons) + len(event.looseElectrons)) == 2 ),
+	EventSkim(selection=lambda event: (len(event.looseMuons) > 0 or len(event.looseElectrons)) > 0 ),
+	#EventSkim(selection=lambda event: (len(event.looseMuons) + len(event.looseElectrons)) == 2 ),
 
         DoubleLeptonTriggerSelection(
             outputName="Trigger",
@@ -216,11 +215,11 @@ def jetSelection(jetDict):
     systNames = jetDict.keys()
    
     #at least 4 AK4 jets and 2 AK8 jets
-    seq.append(
-        EventSkim(selection=lambda event, systNames=systNames: 
-            any([getattr(event, "nselectedJets_"+systName) >= 2 for systName in systNames])
-        ),
-    )
+    #seq.append(
+    #    EventSkim(selection=lambda event, systNames=systNames: 
+    #        any([getattr(event, "nselectedJets_"+systName) >= 2 for systName in systNames])
+    #    ),
+    #)
    
     
     #seq.append(
@@ -229,18 +228,18 @@ def jetSelection(jetDict):
     #   )
     #)
 
-    seq.append(
-        EventSkim(selection=lambda event, systNames=systNames: 
-            any([getattr(event, "nselectedBJets_"+systName+"_loose") >= 2 for systName in systNames])
-        ),
-    )
+    #seq.append(
+    #    EventSkim(selection=lambda event, systNames=systNames: 
+    #        any([getattr(event, "nselectedBJets_"+systName+"_loose") >= 2 for systName in systNames])
+    #    ),
+    #)
 	    
     #at least 2 AK8 jets
-    seq.append(
-        EventSkim(selection=lambda event, systNames=systNames: 
-            any([getattr(event, "nselectedFatJets_"+systName) >= 2 for systName in systNames])
-        )
-    )
+    #seq.append(
+    #    EventSkim(selection=lambda event, systNames=systNames: 
+    #        any([getattr(event, "nselectedFatJets_"+systName) >= 2 for systName in systNames])
+    #    )
+    #)
     
     #TODO: btagging SF producer might have a bug
     '''
@@ -343,7 +342,7 @@ else:
             propagateJER = False, #not recommended
             outputJetPrefix = 'fatjets_',
             outputMetPrefix = None,
-            jetKeys=['jetId', 'btagDeepB','deepTag_TvsQCD','deepTag_WvsQCD','particleNet_TvsQCD','particleNet_WvsQCD','particleNet_mass', 'particleNet_QCD','hadronFlavour','genJetAK8Idx', 'nBHadrons'],  #'nConstituents'
+            jetKeys=['jetId', 'btagDeepB','deepTag_TvsQCD','deepTag_WvsQCD','particleNet_TvsQCD','particleNet_WvsQCD','particleNet_mass', 'particleNet_QCD','hadronFlavour','genJetAK8Idx', 'nBHadrons', 'tau2', 'tau3'],  #'nConstituents'
         )
     ])
 
