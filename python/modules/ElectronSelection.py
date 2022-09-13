@@ -20,17 +20,17 @@ class ElectronSelection(Module):
     def __init__(
         self,
         inputCollection = lambda event: Collection(event, "Electron"),
-        outputName = "tightElectrons",
+        outputName_list = ["tightElectrons","mediumElectrons","looseElectrons"],
         triggerMatch=False,
-        electronID = WP80,
+        #electronID = WP80,
         electronMinPt = 29.,
         electronMaxEta = 2.4,
-        storeKinematics=['pt','eta'],
+        storeKinematics= [] ,#['pt','eta'],
         storeWeights=False,
     ):
 
         self.inputCollection = inputCollection
-        self.outputName = outputName
+        self.outputName_list = outputName_list
         self.electronMinPt = electronMinPt
         self.electronMaxEta = electronMaxEta
         self.storeKinematics = storeKinematics
@@ -39,6 +39,7 @@ class ElectronSelection(Module):
         
         self.triggerObjectCollection = lambda event: Collection(event, "TrigObj") if triggerMatch else lambda event: []
 
+	'''
         if electronID == ElectronSelection.WP90:
             self.electronID = lambda electron: electron.mvaFall17V2Iso_WP90==1
         elif electronID == ElectronSelection.WP80:
@@ -50,6 +51,7 @@ class ElectronSelection(Module):
             self.electronID = lambda electron: True
         else:
             raise Exception("Electron ID undefined")
+	'''
 
         #TODO: save the reco/ID weights if storeWeights==True
         
@@ -76,18 +78,20 @@ class ElectronSelection(Module):
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
-        self.out.branch("n"+self.outputName, "I")
-        if not Module.globalOptions["isData"] and self.storeWeights:
-            self.out.branch(self.outputName+"_weight_reco_nominal","F")
-            self.out.branch(self.outputName+"_weight_reco_up","F")
-            self.out.branch(self.outputName+"_weight_reco_down","F")
+        
+        for outputName in self.outputName_list:
+		self.out.branch("n"+outputName, "I")
+		if not Module.globalOptions["isData"] and self.storeWeights:
+		    self.out.branch(outputName+"_weight_reco_nominal","F")
+		    self.out.branch(outputName+"_weight_reco_up","F")
+		    self.out.branch(outputName+"_weight_reco_down","F")
 
-            self.out.branch(self.outputName+"_weight_id_nominal","F")
-            self.out.branch(self.outputName+"_weight_id_up","F")
-            self.out.branch(self.outputName+"_weight_id_down","F")
+		    self.out.branch(outputName+"_weight_id_nominal","F")
+		    self.out.branch(outputName+"_weight_id_up","F")
+		    self.out.branch(outputName+"_weight_id_down","F")
 
-        for variable in self.storeKinematics:
-            self.out.branch(self.outputName+"_"+variable,"F",lenVar="n"+self.outputName)
+		for variable in self.storeKinematics:
+		    self.out.branch(outputName+"_"+variable,"F",lenVar="n"+outputName)
 
 
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
@@ -99,7 +103,7 @@ class ElectronSelection(Module):
         muons = Collection(event, "Muon")
         triggerObjects = self.triggerObjectCollection(event)
 
-        selectedElectrons = []
+        selectedElectrons = {"WP80": [], "WP90": [] , "WPL": [] }
         unselectedElectrons = []
         
         weight_reco_nominal = 1.
@@ -113,9 +117,10 @@ class ElectronSelection(Module):
         for electron in electrons:
             # https://twiki.cern.ch/twiki/bin/view/CMS/CutBasedElectronIdentificationRun2
             if electron.pt>self.electronMinPt \
-            and math.fabs(electron.eta)<self.electronMaxEta \
-            and self.electronID(electron)\
-            and self.triggerMatched(electron, triggerObjects):
+            and math.fabs(electron.eta)<self.electronMaxEta:
+            #and self.electronID(electron)\
+            #and self.triggerMatched(electron, triggerObjects):
+	
 
                 dxy = math.fabs(electron.dxy)
                 dz = math.fabs(electron.dz)
@@ -134,7 +139,32 @@ class ElectronSelection(Module):
                         unselectedElectrons.append(electron)
                         continue
 
-                selectedElectrons.append(electron)
+		if electron.mvaFall17V2Iso_WP80==1: 
+			selectedElectrons["WP80"].append(electron)
+			selectedElectrons["WP90"].append(electron)
+			selectedElectrons["WPL"].append(electron)
+		elif electron.mvaFall17V2Iso_WP90==1: 
+			selectedElectrons["WP90"].append(electron)
+			selectedElectrons["WPL"].append(electron)
+		elif electron.mvaFall17V2Iso_WPL==1: 
+			selectedElectrons["WPL"].append(electron)
+		
+					
+		'''
+       	 if electronID == ElectronSelection.WP90:
+            self.electronID = lambda electron: electron.mvaFall17V2Iso_WP90==1
+        	elif electronID == ElectronSelection.WP80:
+            self.electronID = lambda electron: electron.mvaFall17V2Iso_WP80==1
+        	elif electronID == ElectronSelection.INV: 
+            self.electronID = lambda electron: electron.mvaFall17V2Iso_WP80==0
+        	elif electronID == ElectronSelection.NONE:
+            self.storeWeights = False
+            self.electronID = lambda electron: True
+        	else:
+            raise Exception("Electron ID undefined")
+		'''
+		
+               #selectedElectrons.append(electron)
                 
                 #TODO: electron reco/ID SFs
                 
@@ -142,23 +172,26 @@ class ElectronSelection(Module):
             else:
                 unselectedElectrons.append(electron)
 
-        
-        if not Module.globalOptions["isData"] and self.storeWeights:
+        for outputName, electron_mvaID in zip(self.outputName_list, ['WP80','WP90','WPL']):
+	
+		self.out.fillBranch("n"+outputName, len(selectedElectrons[electron_mvaID]))
+		
+		if not Module.globalOptions["isData"] and self.storeWeights:
             
-            self.out.fillBranch(self.outputName+"_weight_reco_nominal", weight_reco_nominal)
-            self.out.fillBranch(self.outputName+"_weight_reco_up", weight_reco_up)
-            self.out.fillBranch(self.outputName+"_weight_reco_down", weight_reco_down)
+		    self.out.fillBranch(outputName+"_weight_reco_nominal", weight_reco_nominal)
+		    self.out.fillBranch(outputName+"_weight_reco_up", weight_reco_up)
+		    self.out.fillBranch(outputName+"_weight_reco_down", weight_reco_down)
 
-            self.out.fillBranch(self.outputName+"_weight_id_nominal",weight_id_nominal)
-            self.out.fillBranch(self.outputName+"_weight_id_up",weight_id_up)
-            self.out.fillBranch(self.outputName+"_weight_id_down",weight_id_down)
+		    self.out.fillBranch(outputName+"_weight_id_nominal",weight_id_nominal)
+		    self.out.fillBranch(outputName+"_weight_id_up",weight_id_up)
+		    self.out.fillBranch(outputName+"_weight_id_down",weight_id_down)
 
-        self.out.fillBranch("n"+self.outputName,len(selectedElectrons))
 
-        for variable in self.storeKinematics:
-            self.out.fillBranch(self.outputName+"_"+variable,map(lambda electron: getattr(electron,variable), selectedElectrons))
+		for variable in self.storeKinematics:
+		    self.out.fillBranch(outputName+"_"+variable,map(lambda electron: getattr(electron,variable), selectedElectrons[electron_mvaID]))
+		    #print list(map(lambda electron: getattr(electron,variable), selectedElectrons))
 
-        setattr(event,self.outputName,selectedElectrons)
-        setattr(event,self.outputName+"_unselected",unselectedElectrons)
-
+		setattr(event,outputName,selectedElectrons[electron_mvaID])
+	setattr(event,"unselectedElectrons",unselectedElectrons)
+		
         return True

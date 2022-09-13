@@ -54,8 +54,8 @@ isMC = not args.isData
 isPowheg = 'powheg' in args.inputFiles[0].lower()
 isPowhegTTbar = 'TTTo' in args.inputFiles[0] and isPowheg
 
-minMuonPt =     {'2016': 25., '2016preVFP': 25., '2017': 28., '2018': 25.}
-minElectronPt = {'2016': 29., '2016preVFP': 29., '2017': 34., '2018': 34.}
+minMuonPt =     {'2016': 15., '2016preVFP': 15., '2017': 15., '2018': 15.}
+minElectronPt = {'2016': 15., '2016preVFP': 15., '2017': 15., '2018': 15.}
 
 
 jesUncertaintyFilesRegrouped = {
@@ -102,54 +102,70 @@ def leptonSequence():
     seq = [
         MuonSelection(
             inputCollection=lambda event: Collection(event, "Muon"),
-            outputName="tightMuons",
-            storeKinematics=["pt", "eta", "phi"],
+            outputName_list=["tightMuons","mediumMuons","looseMuons"],
+            storeKinematics=['pt','eta','charge','phi','mass'],
             storeWeights=True,
             muonMinPt=minMuonPt[args.year],
             muonMaxEta=2.4,
             triggerMatch=True,
-            muonID=MuonSelection.TIGHT,
-            muonIso=MuonSelection.INV if args.invid else MuonSelection.VERYTIGHT,
+            #muonID= MuonSelection.TIGHT,
+            #muonIso= MuonSelection.INV if args.invid else MuonSelection.TIGHT,
         ),
-        SingleMuonTriggerSelection(
-            inputCollection=lambda event: event.tightMuons,
-            outputName="IsoMuTrigger",
-            storeWeights=True,
-        ),
-        
-        MuonVeto(
-            inputCollection=lambda event: event.tightMuons_unselected,
-            outputName = "looseMuons",
-            muonMinPt = 10.,
-            muonMaxEta = 2.4,
-        ),
+               
+        #MuonVeto(
+        #    inputCollection=lambda event: event.unselectedMuons,
+        #    outputName = "vetoMuons",
+        #    muonMinPt = 10.,
+        #    muonMaxEta = 2.4,
+        #    storeKinematics=['pt','eta','charge','phi','mass'],
+        #),
 
         ElectronSelection(
             inputCollection = lambda event: Collection(event, "Electron"),
-            outputName = "tightElectrons",
-            electronID = ElectronSelection.INV if args.invid else ElectronSelection.WP90,
+            outputName_list = ["tightElectrons","mediumElectrons","looseElectrons"],
+            #electronID = ElectronSelection.INV if args.invid else ElectronSelection.WP90,
             electronMinPt = minElectronPt[args.year],
             electronMaxEta = 2.4,
-            storeKinematics=["pt", "eta", "phi"],
+            storeKinematics=['pt','eta','charge','phi','mass'],
             storeWeights=True,
         ),
-        SingleElectronTriggerSelection(
-            inputCollection=lambda event: event.tightElectrons,
-            outputName="IsoElectronTrigger",
-            storeWeights=True,
-        ),
-        ElectronVeto(
-            inputCollection=lambda event: event.tightElectrons_unselected,
-            outputName = "looseElectrons",
-            electronMinPt = 10.,
-            electronMaxEta = 2.4,
-        ),
-        EventSkim(selection=lambda event: (event.IsoMuTrigger_flag > 0) or (event.IsoElectronTrigger_flag > 0)),
-        EventSkim(selection=lambda event: (len(event.tightMuons) + len(event.tightElectrons)) == 2),
-        EventSkim(selection=lambda event: (len(event.looseMuons) + len(event.looseElectrons)) == 0),
+
+        #ElectronVeto(
+        #    inputCollection=lambda event: event.unselectedElectrons,
+        #    outputName = "vetoElectrons",
+        #    electronMinPt = 10.,
+        #    electronMaxEta = 2.4,
+        #    storeKinematics=['pt','eta','charge','phi','mass'],
+        #),
+	
+	#EventSkim(selection=lambda event: (len(event.tightMuons) > 0 or len(event.tightElectrons)) > 0 ),
+	#EventSkim(selection=lambda event: (len(event.looseMuons) > 0 or len(event.looseElectrons)) > 0 ),
+	EventSkim(selection=lambda event: (len(event.looseMuons) + len(event.looseElectrons)) == 2 ),
+
+        DoubleLeptonTriggerSelection(
+            outputName="Trigger",
+            storeWeights=False,
+            thresholdPt=15. #minDiMuonPt[args.year], PRELIMINARY VALUE
+         ),
+ 
+ 	EventSkim(selection=lambda event: (event.Trigger_general_flag)),
+ 
+ 	#TriggerMatching(
+ 	#	inputCollectionMuon = lambda event: event.tightMuons,
+        #	inputCollectionElectron = lambda event: event.tightElectrons,
+        #	storeWeights=False,
+       # 	outputName = "TriggerObjectMatching", 
+        #	triggerMatch=True,
+        #	thresholdPt=15.
+ 	#),       
+        
+        #EventSkim(selection=lambda event: (event.Trigger_general_flag and event.TriggerObjectMatching_flag )),
+        #EventSkim(selection=lambda event: (len(event.looseMuons) + len(event.looseElectrons)) == 0),
         
     ]
     return seq
+
+
     
 def jetSelection(jetDict):
     seq = []
@@ -157,72 +173,82 @@ def jetSelection(jetDict):
     for systName,(jetCollection,fatjetCollection) in jetDict.items():
         seq.extend([
             JetSelection(
-                inputCollection=jetCollection,
-                leptonCollectionDRCleaning=lambda event: event.tightMuons+event.tightElectrons,
+                inputCollection= jetCollection, #lambda event: Collection(event, "Jet"),
+                leptonCollectionDRCleaning=lambda event: event.looseMuons+event.looseElectrons,#event.tightMuons+event.tightElectrons,
                 jetMinPt=30.,
                 jetMaxEta=2.4,
                 dRCleaning=0.4,
                 jetId=JetSelection.LOOSE,
-                storeKinematics=['pt', 'eta', 'phi', 'btagDeepFlavB'],
-                outputName="selectedJets_"+systName,
+                storeKinematics=['pt', 'eta','phi','mass'],
+                outputName_list=["selectedJets_"+systName,"unselectedJets_"+systName],
+                fatFlag=False,
+                metInput = lambda event: Object(event, "MET"),
             ),
             #TODO: every ak8 will also be ak4 -> some cross cleaning required
             JetSelection(
-                inputCollection=lambda event: Collection(event, "FatJet"),
-                leptonCollectionDRCleaning=lambda event,sys=systName: event.tightMuons+event.tightElectrons,
-                jetMinPt=200., #ak8 only stored > 175 GeV
+                inputCollection= fatjetCollection, #lambda event: Collection(event, "FatJet"),
+                leptonCollectionDRCleaning=lambda event,sys=systName: event.looseMuons+event.looseElectrons,
+                jetMinPt=400., #ak8 only stored > 175 GeV
                 jetMaxEta=2.4,
                 dRCleaning=0.8,
                 jetId=JetSelection.LOOSE,
-                storeKinematics=['pt', 'eta', 'phi', 'deepTagMD_TvsQCD'],
-                outputName="selectedFatJets_"+systName,
+                storeKinematics=['pt', 'eta','phi','mass'],
+                outputName_list=["selectedFatJets_"+systName,"unselectedFatJets_"+systName],
+		fatFlag=True,
+		metInput = lambda event: Object(event, "MET"),
             )
         ])
         
-        if isMC:
-	    truthKeys = ['hadronFlavour','partonFlavour']
-        else:
-            truthKeys = [] 
-
+        
         seq.append(
             BTagSelection(
                 inputCollection=lambda event,sys=systName: getattr(event,"selectedJets_"+sys),
                 flagName="isBTagged",
-                outputName="selectedBJets_"+systName,
+                outputName_list=["selectedBJets_"+systName+"_tight", "selectedBJets_"+systName+"_medium", "selectedBJets_"+systName+"_loose"],
                 jetMinPt=30.,
                 jetMaxEta=2.4,
-                workingpoint = BTagSelection.TIGHT,
-                storeKinematics=["pt", "eta", "phi"],
-                storeTruthKeys = truthKeys,
+                workingpoint = [],#BTagSelection.TIGHT,
+                storeKinematics=['pt', 'eta','phi','mass'],
+                storeTruthKeys = ['hadronFlavour','partonFlavour'],
             )
         )
         
     systNames = jetDict.keys()
    
-    # At least 2 AK4 jets
+    #at least 4 AK4 jets and 2 AK8 jets
     seq.append(
         EventSkim(selection=lambda event, systNames=systNames: 
             any([getattr(event, "nselectedJets_"+systName) >= 2 for systName in systNames])
-        )
+        ),
     )
+   
     
-    #at least 2 b-tagged jets
+    #seq.append(
+    #    EventSkim(selection=lambda event, systNames=systNames: 
+    #        any([len(filter(lambda jet: jet.isBTagged,getattr(event,"selectedJets_"+systName))) >= 2 for systName in systNames])
+    #   )
+    #)
+
     seq.append(
         EventSkim(selection=lambda event, systNames=systNames: 
-            any([len(filter(lambda jet: jet.isBTagged,getattr(event,"selectedJets_"+systName))) >= 2 for systName in systNames])
-        )
+            any([getattr(event, "nselectedBJets_"+systName+"_loose") >= 2 for systName in systNames])
+        ),
     )
-    '''
+	    
     #at least 2 AK8 jets
     seq.append(
         EventSkim(selection=lambda event, systNames=systNames: 
             any([getattr(event, "nselectedFatJets_"+systName) >= 2 for systName in systNames])
         )
     )
+    
+    #TODO: btagging SF producer might have a bug
     '''
-
     if isMC:
         jesUncertForBtag = ['jes'+syst.replace('Total','') for syst in jesUncertaintyNames]
+        # to remove once breakdown available
+        if args.year != '2016preVFP':
+            jesUncertForBtag = ['jes']
         seq.append(
             btagSFProducer(
                 era=args.year,
@@ -230,21 +256,35 @@ def jetSelection(jetDict):
                 nosyst = args.nosys
             )
         )
+    '''
 
     
             
     return seq
-    
 
-
-analyzerChain = [
-    EventSkim(selection=lambda event: event.nTrigObj > 0),
+storeVariables = [[lambda tree: tree.branch("genweight", "F"),
+                           lambda tree,
+                           event: tree.fillBranch("genweight",
+                           event.Generator_weight)],
+    #[lambda tree: tree.branch("PV_npvs", "I"), lambda tree,
+     #event: tree.fillBranch("PV_npvs", event.PV_npvs)],
+    #[lambda tree: tree.branch("PV_npvsGood", "I"), lambda tree,
+     #event: tree.fillBranch("PV_npvsGood", event.PV_npvsGood)],
+    #[lambda tree: tree.branch("fixedGridRhoFastjetAll", "F"), lambda tree,
+     #event: tree.fillBranch("fixedGridRhoFastjetAll",
+                            #event.fixedGridRhoFastjetAll)],
+]
+		                   
+analyzerChain = [EventInfo(storeVariables=storeVariables),
+EventSkim(selection=lambda event: event.nTrigObj > 0),
     MetFilter(
+        globalOptions=globalOptions,
         outputName="MET_filter"
     ),
 ]
 
 analyzerChain.extend(leptonSequence())
+
 
 if args.isData:
     analyzerChain.extend(
@@ -285,7 +325,7 @@ else:
             propagateJER = False, #not recommended
             outputJetPrefix = 'jets_',
             outputMetPrefix = 'met_',
-            jetKeys=['jetId', 'nConstituents','btagDeepFlavB','hadronFlavour','partonFlavour'],
+            jetKeys=['jetId', 'nConstituents','btagDeepFlavB','hadronFlavour','partonFlavour','genJetIdx'],
         ),
         JetMetUncertainties(
             jesAK8UncertaintyFilesRegrouped[args.year],
@@ -303,7 +343,7 @@ else:
             propagateJER = False, #not recommended
             outputJetPrefix = 'fatjets_',
             outputMetPrefix = None,
-            jetKeys=['jetId', 'nConstituents','deepTag_TvsQCD','hadronFlavour'],
+            jetKeys=['jetId', 'btagDeepB','deepTag_TvsQCD','deepTag_WvsQCD','particleNet_TvsQCD','particleNet_WvsQCD','particleNet_mass', 'particleNet_QCD','hadronFlavour','genJetAK8Idx', 'nBHadrons'],  #'nConstituents'
         )
     ])
 
@@ -323,13 +363,6 @@ else:
         jetSelection(jetDict)
     )
 
-analyzerChain.extend([
-    MetSelection(
-         outputName="MET",
-         storeKinematics=['pt', 'phi']
-    ),
-    LHEWeightProducer()
-])
 
 if not args.isData:
     #analyzerChain.append(GenWeightProducer())
@@ -369,12 +402,71 @@ if not globalOptions["isData"]:
                                                                                getattr(event,'L1PreFiringWeight_{}'.format(L1prefirWeight)))
         ])
     '''
-    analyzerChain.append(EventInfo(storeVariables=storeVariables))
+    #analyzerChain.append(EventInfo(storeVariables=storeVariables))
+
+##############################SISTEMA PER LE SYSTEMATICHE
+
+#analyzerChain.append( 
+#	EventReconstruction(
+#		inputMuonCollection=lambda event: [event.tightMuons, event.mediumMuons, event.looseMuons],
+#        	inputElectronCollection=lambda event: [event.tightElectrons, event.mediumElectrons, event.looseElectrons],
+#        	inputJetCollection=lambda event: event.selectedJets_nominal,
+#        	inputFatJetCollection=lambda event: event.selectedFatJets_nominal,
+#        	inputBJetCollection=lambda event: [event.selectedBJets_nominal_tight, event.selectedBJets_nominal_medium, event.selectedBJets_nominal_loose],  #ALL THE BJETS ARE AK4 JETS
+#        	inputMETCollection=lambda event: event.met_nominal,
+#        	outputName="diHadronic",
+#        	storeKinematics_jets= ['pt','eta','phi','mass'],
+#        	storeKinematics_leptons= ['pt','eta','phi','mass','charge','leptonFlavour'],
+#	)		
+#)
+
+
+if args.isSignal:
+	analyzerChain.extend( [
+		GenParticleModule_Signal(
+			inputCollection=lambda event: Collection(event, "GenPart"),
+			inputFatGenJetCollection=lambda event: Collection(event, "GenJetAK8"),
+			inputGenJetCollection=lambda event: Collection(event, "GenJet"),
+			inputFatJetCollection= lambda event: event.selectedFatJets_nominal, #lambda event: event.diHadronic_selectedAK8s,
+        		inputJetCollection= lambda event: event.selectedJets_nominal, #lambda event: event.diHadronic_cleanedAK4s,
+			inputMuonCollection=lambda event: event.looseMuons,
+			inputElectronCollection=lambda event: event.looseElectrons,
+			#eventReco_flags = lambda event: event.diHadronic_event_selection_flags,
+			outputName="genPart",
+			storeKinematics= ['pt','eta','phi','mass'],
+		),
+		EventSkim(selection=lambda event: event.ngenPart == 21),
+	])
+
+if isMC:
+	analyzerChain.extend( [
+		GenParticleModule(
+			inputCollection=lambda event: Collection(event, "GenPart"),
+			inputFatGenJetCollection=lambda event: Collection(event, "GenJetAK8"),
+			inputGenJetCollection=lambda event: Collection(event, "GenJet"),
+			inputFatJetCollection= lambda event: event.selectedFatJets_nominal, #lambda event: event.diHadronic_selectedAK8s,
+        		inputJetCollection= lambda event: event.selectedJets_nominal, #lambda event: event.diHadronic_cleanedAK4s,
+			inputMuonCollection=lambda event: event.looseMuons,
+			inputElectronCollection=lambda event: event.looseElectrons,
+			#inputMuonCollection
+			#eventReco_flags = lambda event: event.diHadronic_event_selection_flags,
+			outputName="genPart",
+			storeKinematics= ['pt','eta','phi','mass'],
+		),
+		#EventSkim(selection=lambda event: event.ngenPart == 21),
+	])
+
+'''
+analyzerChain.extend([
+	EventSkim(selection=lambda event: event.MET_energy > 200),
+	EventSkim(selection=lambda event: event.selectedJets_nominal_HT > 1000)
+])
+'''
 
 p = PostProcessor(
     args.output[0],
     args.inputFiles,
-    cut="(nJet>1)&&((nElectron+nMuon)>1)", #at least 2 jets + 2 leptons
+    cut="",#"(nJet>1)&&((nElectron+nMuon)>1)", #at least 2 jets + 2 leptons
     modules=analyzerChain,
     friend=True,
     maxEntries = args.maxEvents

@@ -16,11 +16,13 @@ class MuonVeto(Module):
         outputName = "vetoMuons",
         muonMinPt = 10.,
         muonMaxEta = 2.4,
+        storeKinematics=['pt','eta','charge','phi','mass'],
     ):
         self.inputCollection = inputCollection
         self.outputName = outputName
         self.muonMinPt = muonMinPt
         self.muonMaxEta = muonMaxEta
+        self.storeKinematics = storeKinematics
  
     def beginJob(self):
         pass
@@ -32,6 +34,13 @@ class MuonVeto(Module):
         self.out = wrappedOutputTree
         #self.out.branch("n"+self.outputName,"I")
         
+	self.out.branch("n"+self.outputName, "I")
+	self.out.branch("nunselectedMuons", "I")
+
+	for variable in self.storeKinematics:
+	    self.out.branch(self.outputName+"_"+variable,"F",lenVar="n"+self.outputName)
+	    self.out.branch("unselectedMuons"+"_"+variable,"F",lenVar="nunselectedMuons")
+        
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
         
@@ -39,20 +48,26 @@ class MuonVeto(Module):
         """process event, return True (go to next module) or False (fail, go to next event)"""
         muons = self.inputCollection(event)
         
-        selectedMuons = []
-        unselectedMuons = []
+        vetoMuons = []
+        vetounselectedMuons = []
         
         #https://twiki.cern.ch/twiki/bin/view/CMS/SWGuideMuonIdRun2#Tight_Muon
         for muon in muons:
             if muon.pt>self.muonMinPt and math.fabs(muon.eta)<self.muonMaxEta and muon.isPFcand==1 and (muon.pfRelIso04_all<0.25):
-                selectedMuons.append(muon)
+                vetoMuons.append(muon)
             else:
-                unselectedMuons.append(muon)
+                vetounselectedMuons.append(muon)
   
-        #self.out.fillBranch("n"+self.outputName,len(selectedMuons))
+	self.out.fillBranch("n"+self.outputName,len(vetoMuons))
+	self.out.fillBranch("nunselectedMuons",len(vetounselectedMuons))
+		
+	for variable in self.storeKinematics:
+	    self.out.fillBranch(self.outputName+"_"+variable,map(lambda muon: getattr(muon,variable),vetoMuons))
+	    self.out.fillBranch("unselectedMuons""_"+variable,map(lambda muon: getattr(muon,variable),vetounselectedMuons))
+        #self.out.fillBranch("n"+self.self.outputName,len(selectedMuons))
         
-        setattr(event,self.outputName,selectedMuons)
-        setattr(event,self.outputName+"_unselected",unselectedMuons)
+        setattr(event,self.outputName,vetoMuons)
+        setattr(event,self.outputName+"_unselected",vetounselectedMuons)
 
         return True
         

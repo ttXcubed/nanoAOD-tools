@@ -4,6 +4,7 @@ import math
 import json
 import ROOT
 import random
+import heapq
 
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
@@ -21,28 +22,29 @@ class MuonSelection(Module):
     def __init__(
         self,
         inputCollection=lambda event: Collection(event, "Muon"),
-        outputName="tightMuons",
+        outputName_list=["tightMuons","mediumMuons","looseMuons"],
         triggerMatch=False,
-        muonID=TIGHT,
-        muonIso=TIGHT,
+        #muonID=TIGHT,
+        #muonIso=TIGHT,
         muonMinPt=25.,
         muonMaxEta=2.4,
-        storeKinematics=['pt','eta'],
+        storeKinematics= [],#['pt','eta'],
         storeWeights=False,
     ):
         
         self.inputCollection = inputCollection
-        self.outputName = outputName
+        self.outputName_list = outputName_list
         self.muonMinPt = muonMinPt
         self.muonMaxEta = muonMaxEta
         self.storeKinematics = storeKinematics
         self.storeWeights = storeWeights
         self.triggerMatch = triggerMatch
 
-        if muonID==MuonSelection.MEDIUM or muonIso==MuonSelection.MEDIUM:
-            raise Exception("Unsupported ID or ISO")
+        #if muonID==MuonSelection.MEDIUM or muonIso==MuonSelection.MEDIUM:
+        #    raise Exception("Unsupported ID or ISO")
 
         self.triggerObjectCollection = lambda event: Collection(event, "TrigObj") if triggerMatch else lambda event: []
+        
         ''' 
         if Module.globalOptions["year"] == '2016preVFP':
                 
@@ -167,7 +169,7 @@ class MuonSelection(Module):
         else:
             raise Exception("Error - invalid year for muon efficiencies")
 
-        '''
+        
         if muonID==MuonSelection.TIGHT:
             self.muonIdFct = lambda muon: muon.tightId==1
             #self.muonIdSF = self.idTightSFHist
@@ -181,32 +183,32 @@ class MuonSelection(Module):
             
         if muonIso==MuonSelection.VERYTIGHT:
             self.muonIsoFct = lambda muon: muon.pfRelIso04_all<0.06
-            '''
+            
             if muonID==MuonSelection.TIGHT:
                 #TODO: need to use very tight SFs
                 self.muonIsoSF = self.isoTightTightSFHist
             else:
                 raise Exception("Error - unsupported muon ID/iso combination")
-            '''
+            
         elif muonIso==MuonSelection.TIGHT:
             self.muonIsoFct = lambda muon: muon.pfRelIso04_all<0.15
-            '''
+           
             if muonID==MuonSelection.TIGHT:
                 self.muonIsoSF = self.isoTightTightSFHist
             else:
                 raise Exception("Error - unsupported muon ID/iso combination")
-            '''
+            
         elif muonIso==MuonSelection.LOOSE:
             self.muonIsoFct = lambda muon: muon.pfRelIso04_all<0.25
-            '''
+            
             if muonID==MuonSelection.LOOSE:
                 self.muonIsoSF = self.isoLooseLooseSFHist
             else:
                 raise Exception("Error - unsupported muon ID/iso combination")
-            '''
+            
         elif muonIso==MuonSelection.NONE:
             self.muonIsoFct = lambda muon: True
-            '''
+            
             if muonID==MuonSelection.TIGHT:
                 self.muonIsoSF = self.isoLooseTightSFHist
             elif muonID==MuonSelection.LOOSE:
@@ -215,12 +217,12 @@ class MuonSelection(Module):
                 self.muonIsoSF = self.isoLooseLooseSFHist
             else:
                 raise Exception("Error - unsupported muon ID/iso combination")
-            '''
+            
         elif muonIso==MuonSelection.INV:
             self.muonIsoFct = lambda muon: muon.pfRelIso04_all>0.25 and muon.pfRelIso04_all<0.8
             self.storeWeights = False
-        
-
+        '''
+	
     def triggerMatched(self, muon, trigger_object):
         if self.triggerMatch:
             trig_deltaR = math.pi
@@ -243,20 +245,23 @@ class MuonSelection(Module):
         
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
-        self.out.branch("n"+self.outputName, "I")
-
-        for variable in self.storeKinematics:
-            self.out.branch(self.outputName+"_"+variable,"F",lenVar="n"+self.outputName)
-            
-        if not Module.globalOptions["isData"] and self.storeWeights:
-            self.out.branch(self.outputName+"_weight_id_nominal","F")
-            self.out.branch(self.outputName+"_weight_id_up","F")
-            self.out.branch(self.outputName+"_weight_id_down","F")
-            
-            self.out.branch(self.outputName+"_weight_iso_nominal","F")
-            self.out.branch(self.outputName+"_weight_iso_up","F")
-            self.out.branch(self.outputName+"_weight_iso_down","F")
         
+        for outputName in self.outputName_list:
+		self.out.branch("n"+outputName, "I")
+
+		self.out.branch(outputName+"_leptonFlavour","I",lenVar="n"+outputName)
+		for variable in self.storeKinematics:
+		    self.out.branch(outputName+"_"+variable,"F",lenVar="n"+outputName)
+		
+		if not Module.globalOptions["isData"] and self.storeWeights:
+		    self.out.branch(outputName+"_weight_id_nominal","F")
+		    self.out.branch(outputName+"_weight_id_up","F")
+		    self.out.branch(outputName+"_weight_id_down","F")
+		    
+		    self.out.branch(outputName+"_weight_iso_nominal","F")
+		    self.out.branch(outputName+"_weight_iso_up","F")
+		    self.out.branch(outputName+"_weight_iso_down","F")
+
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
         
@@ -266,7 +271,7 @@ class MuonSelection(Module):
 
         triggerObjects = self.triggerObjectCollection(event)
 
-        selectedMuons = []
+        selectedMuons = {'tight': [], 'medium': [], 'loose': []}
         unselectedMuons = []
         
         weight_id_nominal = 1.
@@ -280,12 +285,22 @@ class MuonSelection(Module):
         #https://twiki.cern.ch/twiki/bin/view/CMS/SWGuideMuonIdRun2#Tight_Muon
         for muon in muons:
             if muon.pt>self.muonMinPt \
-            and math.fabs(muon.eta)<self.muonMaxEta \
-            and self.muonIdFct(muon) \
-            and self.muonIsoFct(muon) \
-            and self.triggerMatched(muon, triggerObjects):
+            and math.fabs(muon.eta)<self.muonMaxEta:
+            #and self.muonIdFct(muon) \
+            #and self.muonIsoFct(muon) :
+            #and self.triggerMatched(muon, triggerObjects):
             
-                selectedMuons.append(muon)
+            	if muon.tightId==1 and muon.pfRelIso04_all<0.15:
+            		 selectedMuons['tight'].append(muon)
+            		 selectedMuons['medium'].append(muon)
+            		 selectedMuons['loose'].append(muon)
+    		elif muon.mediumId==1 and muon.pfRelIso04_all<0.20:
+    			selectedMuons['medium'].append(muon)
+    			selectedMuons['loose'].append(muon)
+            	elif muon.looseId==1 and muon.pfRelIso04_all<0.25:
+            		selectedMuons['loose'].append(muon)
+            	
+ 
                 #TODO
                 '''
                 if not Module.globalOptions["isData"] and self.storeWeights:
@@ -311,21 +326,24 @@ class MuonSelection(Module):
                 unselectedMuons.append(muon)
 
 
-        self.out.fillBranch("n"+self.outputName,len(selectedMuons))
-        for variable in self.storeKinematics:
-            self.out.fillBranch(self.outputName+"_"+variable,map(lambda muon: getattr(muon,variable),selectedMuons))
-        
-        if not Module.globalOptions["isData"] and self.storeWeights:
-            self.out.fillBranch(self.outputName+"_weight_id_nominal", weight_id_nominal)
-            self.out.fillBranch(self.outputName+"_weight_id_up", weight_id_up)
-            self.out.fillBranch(self.outputName+"_weight_id_down", weight_id_down)
-            
-            self.out.fillBranch(self.outputName+"_weight_iso_nominal", weight_iso_nominal)
-            self.out.fillBranch(self.outputName+"_weight_iso_up", weight_iso_up)
-            self.out.fillBranch(self.outputName+"_weight_iso_down", weight_iso_down)
+	for outputName, muon_ID in zip(self.outputName_list, ['tight','medium','loose']):
+		self.out.fillBranch("n"+outputName,len(selectedMuons[muon_ID]))
+		
+		for variable in self.storeKinematics:
+		    self.out.fillBranch(outputName+"_"+variable,map(lambda muon: getattr(muon,variable),selectedMuons[muon_ID]))
+		    
+		if not Module.globalOptions["isData"] and self.storeWeights:
+		    self.out.fillBranch(outputName+"_weight_id_nominal", weight_id_nominal)
+		    self.out.fillBranch(outputName+"_weight_id_up", weight_id_up)
+		    self.out.fillBranch(outputName+"_weight_id_down", weight_id_down)
+		    
+		    self.out.fillBranch(outputName+"_weight_iso_nominal", weight_iso_nominal)
+		    self.out.fillBranch(outputName+"_weight_iso_up", weight_iso_up)
+		    self.out.fillBranch(outputName+"_weight_iso_down", weight_iso_down)
 
-        setattr(event,self.outputName,selectedMuons)
-        setattr(event,self.outputName+"_unselected",unselectedMuons)
+
+		setattr(event,outputName,selectedMuons[muon_ID])
+        setattr(event,"unselectedMuons",unselectedMuons)
 
         return True
 
