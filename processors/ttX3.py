@@ -5,6 +5,7 @@ import argparse
 import random
 import ROOT
 import numpy as np
+import json
 
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor \
     import PostProcessor
@@ -28,6 +29,7 @@ parser.add_argument('--year', dest='year',
                     action='store', type=str, default='2017', choices=['2016','2016preVFP','2017','2018'])
 parser.add_argument('-i','--input', dest='inputFiles', action='append', default=[])
 parser.add_argument('--maxEvents', dest='maxEvents', type=int, default=None)
+parser.add_argument('--trigger', dest='trigger', type=str, default=None, choices=['mm','em','ee'])
 parser.add_argument('output', nargs=1)
 
 args = parser.parse_args()
@@ -56,6 +58,17 @@ isPowhegTTbar = 'TTTo' in args.inputFiles[0] and isPowheg
 
 minMuonPt =     {'2016': 15., '2016preVFP': 15., '2017': 15., '2018': 15.}
 minElectronPt = {'2016': 15., '2016preVFP': 15., '2017': 15., '2018': 15.}
+
+
+if args.isData:
+	with open('GoldenJSON/13TeV_UL'+args.year+'_GoldenJSON.txt', 'r') as f:
+  		data_json = json.load(f)
+
+	filtered_data=dict()
+	for run in data_json.keys():
+		filtered_data[int(run)] = list()
+		for lumi in data_json[run]:
+			filtered_data[int(run)].extend(range(lumi[0],lumi[1]+1))
 
 
 jesUncertaintyFilesRegrouped = {
@@ -138,32 +151,71 @@ def leptonSequence():
         #),
 	
 	#EventSkim(selection=lambda event: (len(event.tightMuons) > 0 or len(event.tightElectrons)) > 0 ),
-	EventSkim(selection=lambda event: (len(event.looseMuons) > 0 or len(event.looseElectrons)) > 0 ),
+	EventSkim(selection=lambda event: (len(event.looseMuons) + len(event.looseElectrons)) > 1 ),
 	#EventSkim(selection=lambda event: (len(event.looseMuons) + len(event.looseElectrons)) == 2 ),
 
-        DoubleLeptonTriggerSelection(
-            outputName="Trigger",
-            storeWeights=False,
-            thresholdPt=15. #minDiMuonPt[args.year], PRELIMINARY VALUE
-         ),
- 
- 	EventSkim(selection=lambda event: (event.Trigger_general_flag)),
- 
- 	#TriggerMatching(
- 	#	inputCollectionMuon = lambda event: event.tightMuons,
-        #	inputCollectionElectron = lambda event: event.tightElectrons,
-        #	storeWeights=False,
-       # 	outputName = "TriggerObjectMatching", 
-        #	triggerMatch=True,
-        #	thresholdPt=15.
- 	#),       
         
-        #EventSkim(selection=lambda event: (event.Trigger_general_flag and event.TriggerObjectMatching_flag )),
-        #EventSkim(selection=lambda event: (len(event.looseMuons) + len(event.looseElectrons)) == 0),
         
     ]
     return seq
 
+def trigger():
+	
+	if args.isData:
+		if args.trigger=='mm':
+			seq = [
+				DoubleMuonTriggerSelection(
+				    inputCollection = lambda event: event.looseMuons,
+				    outputName="trigger",
+				    storeWeights=False,
+				    thresholdPt=15. #minDiMuonPt[args.year], PRELIMINARY VALUE
+			 	),	
+			 	EventSkim(selection=lambda event: (event.trigger_DiMu_flag)),
+		 	]
+		 	return seq
+		elif args.trigger=='em':
+			seq = [
+			 	ElectronMuonTriggerSelection(
+			    	    inputCollection = lambda event: event.looseElectrons+event.looseMuons,
+				    outputName="trigger",
+				    storeWeights=False,
+				    thresholdPt=15. #minDiMuonPt[args.year], PRELIMINARY VALUE
+			 	),
+			 	EventSkim(selection=lambda event: (event.trigger_DiLep_flag)),
+		 	]
+		 	return seq
+		elif args.trigger=='ee':
+			seq = [
+			 	DoubleElectronTriggerSelection(
+			    	    inputCollection = lambda event: event.looseElectrons,        	    
+				    outputName="trigger",
+				    storeWeights=False,
+				    thresholdPt=15. #minDiMuonPt[args.year], PRELIMINARY VALUE
+			 	),
+			 	EventSkim(selection=lambda event: (event.trigger_DiEl_flag)),
+		 	] 
+		 	return seq
+	else: 
+		seq = [
+			DoubleLeptonTriggerSelection(
+			    outputName="trigger",
+			    storeWeights=False,
+			    thresholdPt=15. #minDiMuonPt[args.year], PRELIMINARY VALUE
+			 ),	
+
+			EventSkim(selection=lambda event: (event.trigger_general_flag)),
+		]
+		return seq
+	#TriggerMatching(
+	#	inputCollectionMuon = lambda event: event.tightMuons,
+	#	inputCollectionElectron = lambda event: event.tightElectrons,
+	#	storeWeights=False,
+	# 	outputName = "TriggerObjectMatching", 
+	#	triggerMatch=True,
+	#	thresholdPt=15.
+	#),       
+
+	#EventSkim(selection=lambda event: (event.Trigger_general_flag and event.TriggerObjectMatching_flag )),
 
     
 def jetSelection(jetDict):
@@ -233,7 +285,7 @@ def jetSelection(jetDict):
     #        any([getattr(event, "nselectedBJets_"+systName+"_loose") >= 2 for systName in systNames])
     #    ),
     #)
-	    
+	   
     #at least 2 AK8 jets
     #seq.append(
     #    EventSkim(selection=lambda event, systNames=systNames: 
@@ -241,49 +293,69 @@ def jetSelection(jetDict):
     #    )
     #)
     
-    #TODO: btagging SF producer might have a bug
-    '''
     if isMC:
-        jesUncertForBtag = ['jes'+syst.replace('Total','') for syst in jesUncertaintyNames]
-        # to remove once breakdown available
-        if args.year != '2016preVFP':
-            jesUncertForBtag = ['jes']
-        seq.append(
-            btagSFProducer(
-                era=args.year,
-                jesSystsForShape = jesUncertForBtag,
-                nosyst = args.nosys
-            )
-        )
-    '''
+	jesUncertForBtag = ['jes'+syst.replace('Total','') for syst in jesUncertaintyNames]
+	seq.append(
+	    btagSFProducer(
+		era=args.year,
+		jesSystsForShape = jesUncertForBtag,
+		nosyst = args.nosys
+	    )
+	)
 
     
             
     return seq
 
-storeVariables = [[lambda tree: tree.branch("genweight", "F"),
-                           lambda tree,
-                           event: tree.fillBranch("genweight",
-                           event.Generator_weight)],
-    #[lambda tree: tree.branch("PV_npvs", "I"), lambda tree,
-     #event: tree.fillBranch("PV_npvs", event.PV_npvs)],
-    #[lambda tree: tree.branch("PV_npvsGood", "I"), lambda tree,
-     #event: tree.fillBranch("PV_npvsGood", event.PV_npvsGood)],
-    #[lambda tree: tree.branch("fixedGridRhoFastjetAll", "F"), lambda tree,
-     #event: tree.fillBranch("fixedGridRhoFastjetAll",
-                            #event.fixedGridRhoFastjetAll)],
-]
-		                   
-analyzerChain = [EventInfo(storeVariables=storeVariables),
-EventSkim(selection=lambda event: event.nTrigObj > 0),
-    MetFilter(
-        globalOptions=globalOptions,
-        outputName="MET_filter"
-    ),
-]
+if not Module.globalOptions["isData"]:
+	storeVariables = [[lambda tree: tree.branch("genweight", "F"),
+		                   lambda tree,
+		                   event: tree.fillBranch("genweight",
+		                   event.Generator_weight)],
+	    #[lambda tree: tree.branch("PV_npvs", "I"), lambda tree,
+	     #event: tree.fillBranch("PV_npvs", event.PV_npvs)],
+	    #[lambda tree: tree.branch("PV_npvsGood", "I"), lambda tree,
+	     #event: tree.fillBranch("PV_npvsGood", event.PV_npvsGood)],
+	    #[lambda tree: tree.branch("fixedGridRhoFastjetAll", "F"), lambda tree,
+	     #event: tree.fillBranch("fixedGridRhoFastjetAll",
+		                    #event.fixedGridRhoFastjetAll)],
+	]
+	
+else: 
+	storeVariables = [[lambda tree: tree.branch("run", "I"),
+		                   lambda tree,
+		                   event: tree.fillBranch("run",
+		                   event.run)],
+	    [lambda tree: tree.branch("PV_npvs", "I"), lambda tree,
+	     event: tree.fillBranch("PV_npvs", event.PV_npvs)],
+	    [lambda tree: tree.branch("luminosityBlock", "I"), lambda tree,
+	     event: tree.fillBranch("luminosityBlock", event.luminosityBlock)],
+	    #[lambda tree: tree.branch("fixedGridRhoFastjetAll", "F"), lambda tree,
+	     #event: tree.fillBranch("fixedGridRhoFastjetAll",
+		                    #event.fixedGridRhoFastjetAll)],
+	]
+	
+if not Module.globalOptions["isData"]:	
+	analyzerChain = [EventInfo(storeVariables=storeVariables),
+	EventSkim(selection=lambda event: event.nTrigObj > 0),
+	    MetFilter(
+		globalOptions=globalOptions,
+		outputName="MET_filter"
+	    ),
+	]
+else:                   
+	analyzerChain = [EventSkim(selection=lambda event: event.run in filtered_data.keys()),
+	EventSkim(selection=lambda event: event.luminosityBlock in filtered_data[event.run]) ,
+	EventInfo(storeVariables=storeVariables),
+	EventSkim(selection=lambda event: event.nTrigObj > 0),
+	    MetFilter(
+		globalOptions=globalOptions,
+		outputName="MET_filter"
+	    ),
+	]
 
 analyzerChain.extend(leptonSequence())
-
+analyzerChain.extend(trigger())
 
 if args.isData:
     analyzerChain.extend(

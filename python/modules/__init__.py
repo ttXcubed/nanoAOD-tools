@@ -10,8 +10,9 @@ from GenParticleModule import GenParticleModule
 from GenParticleModule_Signal import GenParticleModule_Signal
 
 #trigger
-#from DoubleMuonTriggerSelection import DoubleMuonTriggerSelection
-#from DoubleElectronTriggerSelection import DoubleElectronTriggerSelection
+from DoubleMuonTriggerSelection import DoubleMuonTriggerSelection
+from DoubleElectronTriggerSelection import DoubleElectronTriggerSelection
+from ElectronMuonTriggerSelection import ElectronMuonTriggerSelection
 from TriggerMatching import TriggerMatching 
 from DoubleLeptonTriggerSelection import DoubleLeptonTriggerSelection
 

@@ -17,13 +17,13 @@ class DoubleLeptonTriggerSelection(Module):
         self,
         storeWeights=False,
         outputName = "Trigger",
-        thresholdPt=15.,  #preliminary value    
+        thresholdPt=15.,  #preliminary value  
+
     ):
       
         self.outputName = outputName
         self.storeWeights = storeWeights
         self.thresholdPt = thresholdPt
-        
 
 	'''
         if not Module.globalOptions["isData"]:
@@ -108,8 +108,9 @@ class DoubleLeptonTriggerSelection(Module):
             weight_trigger_down*=(weight_trigger-weight_trigger_err)
              
 
-        
+        DiLeptonTrg_flag, DiMuonTrg_flag, DiElectronTrg_flag = False, False, False
         if Module.globalOptions["year"] == '2016' or Module.globalOptions["year"] == '2016preVFP':
+            	
             	DiLeptonTrg_flag = event.HLT_Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL_DZ or event.HLT_Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL or event.HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL or event.HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ
 		DiMuonTrg_flag = event.HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL or event.HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ or event.HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL or event.HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_DZ or event.HLT_TkMu17_TrkIsoVVL_TkMu8_TrkIsoVVL or event.HLT_TkMu17_TrkIsoVVL_TkMu8_TrkIsoVVL_DZ  
 		DiElectronTrg_flag = event.HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ>0  

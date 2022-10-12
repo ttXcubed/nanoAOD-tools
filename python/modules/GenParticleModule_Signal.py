@@ -21,6 +21,8 @@ class GenParticleModule_Signal(Module):
         inputGenJetCollection=lambda event: Collection(event, "GenJet"),
         inputFatJetCollection=lambda event: Collection(event, "Jet"),
         inputJetCollection=lambda event: Collection(event, "Jet"),
+        inputMuonCollection=lambda event: Collection(event, "Muon"),
+        inputElectronCollection=lambda event: Collection(event, "Electron"),        
         #eventReco_flags = [],
         outputName="genPart",
         storeKinematics= ['pt','eta','phi','mass'],
@@ -31,6 +33,8 @@ class GenParticleModule_Signal(Module):
         self.inputGenJetCollection = inputGenJetCollection
         self.inputFatJetCollection = inputFatJetCollection
         self.inputJetCollection = inputJetCollection
+        self.inputMuonCollection = inputMuonCollection
+        self.inputElectronCollection = inputElectronCollection
         #self.eventReco_flags = eventReco_flags
         self.outputName = outputName
         self.storeKinematics = storeKinematics
@@ -349,105 +353,6 @@ class GenParticleModule_Signal(Module):
 	self.out.fillBranch("selectedJets_spectatorFlag_bMatching", genMatching_jet_b_spectator_flag)
 	self.out.fillBranch("selectedJets_resonantFlag_bMatching", genMatching_jet_b_resonant_flag)	
 
-	'''
-	for eventReco_flag in eventReco_flag_dict.keys():
-		genMatching_jet_top_spectator_flag, genMatching_jet_top_resonant_flag = [], [] 
-		genMatching_jet_b_spectator_flag, genMatching_jet_b_resonant_flag = [], [] 
-		genMatching_fatjet_top_spectator_flag, genMatching_fatjet_top_resonant_flag = [], []
-		genMatching_fatjet_w_spectator_flag, genMatching_fatjet_w_resonant_flag = [], []
-
-		if eventReco_flag_dict[eventReco_flag]:	
-			
-			for iP, particle in enumerate(pdg_list):
-				
-					if abs(particle) == 6:
-						gFJets_idx = self.genP_genJet_matching(genP_idx, variable_list, fatGenJets, 1.6, 0.5)
-						gJets_idx = self.genP_genJet_matching(genP_idx, variable_list, genJets, 0.8, 0.5)
-					
-						if gJets_index != -99:	
-							if motherIdx_list[motherIdx_list[iP]] == -99:		
-								genJetIdx_top_list_spectator.append(gJets_idx)
-							elif abs(pdg_list[motherIdx_list[motherIdx_list[iP]]) == 6000055:
-								genFatJetIdx_top_list_resonant.append(gJets_idx)
-													
-						if gFJets_index != -99: 
-							if motherIdx_list[motherIdx_list[iP]] == -99:		
-								genFatJetIdx_top_list_spectator.append(gFJets_idx)
-							elif abs(pdg_list[motherIdx_list[motherIdx_list[iP]]) == 6000055:
-								genFatJetIdx_top_list_resonant.append(gFJets_idx)
-																			
-					elif abs(particle) == 24:
-						gJets_idx = self.genP_genJet_matching(genP_idx, variable_list, fatGenJets, 1.6, 0.5)
-						if gJets_index != -99:	
-							if motherIdx_list[motherIdx_list[iP]] == -99:
-								genFatJetIdx_w_list_spectator.append(gJets_idx)		
-							elif abs(pdg_list[motherIdx_list[motherIdx_list[iP]]) == 6000055:
-								genFatJetIdx_w_list_resonant.append(gJets_idx)
-							
-					elif abs(particle) == 5:
-						gJets_idx = self.genP_genJet_matching(genP_idx, variable_list, genJets, 0.8, 0.5)
-						if gJets_index != -99:	
-							if motherIdx_list[motherIdx_list[iP]] == -99:	
-								genJetIdx_b_list_resonant.append(gJets_idx)	
-							elif abs(pdg_list[motherIdx_list[motherIdx_list[iP]]]) == 6000055:
-						 		genJetIdx_b_list_spectator.append(gJets_idx)
-					else: continue					
-			
-			
-			for ak8 in fatJets_dict[eventReco_flag][0:2]:	
-				if ak8.genJetAK8Idx in genFatJetIdx_list_spectator:
-					genMatching_fatjet_spectator_flag.append(True)
-					genMatching_fatjet_resonant_flag.append(False)				
-				elif ak8.genJetAK8Idx in genFatJetIdx_list_resonant:
-					genMatching_fatjet_resonant_flag.append(True)
-					genMatching_fatjet_spectator_flag.append(False)
-				else: 
-					genMatching_fatjet_spectator_flag.append(False)
-					genMatching_fatjet_resonant_flag.append(False)
-			
-			for ak4 in jets:
-				if ak4.genJetIdx in genJetIdx_top_list_spectator:
-					genMatching_jet_top_spectator_flag.append(True)
-					genMatching_jet_top_resonant_flag.append(False)				
-				elif ak4.genJetIdx in genJetIdx_top_list_resonant:
-					genMatching_jet_top_resonant_flag.append(True)
-					genMatching_jet_top_spectator_flag.append(False)
-				else: 
-					genMatching_jet_top_spectator_flag.append(False)
-					genMatching_jet_top_resonant_flag.append(False)
-				
-				if ak4.genJetIdx in genJetIdx_b_list_spectator:
-					genMatching_jet_b_spectator_flag.append(True)
-					genMatching_jet_b_resonant_flag.append(False)				
-				elif ak4.genJetIdx in genJetIdx_b_list_resonant:
-					genMatching_jet_b_resonant_flag.append(True)
-					genMatching_jet_b_spectator_flag.append(False)
-				else: 
-					genMatching_jet_b_spectator_flag.append(False)
-					genMatching_jet_b_resonant_flag.append(False)	
-			
-
-			self.out.fillBranch("n"+self.outputName+"_diHadronic_FatJet", len(fatJets_dict[eventReco_flag][0:2]))
-			self.out.fillBranch("n"+self.outputName+"_diHadronic_cleanedAK4s", len(jets))
-			self.out.fillBranch("n"+self.outputName,len(pdg_list))
-					
-			for i,variable in enumerate(self.storeKinematics):
-				self.out.fillBranch(self.outputName+"_"+variable, variable_list[i]) 
-			
-			self.out.fillBranch(self.outputName+"_pdgId", pdg_list) 
-			self.out.fillBranch(self.outputName+"_IdxMother", motherIdx_list) 
-			self.out.fillBranch(self.outputName+"_status", status_list) 
-			
-
-			self.out.fillBranch("diHadronic_FatJet_spectatorFlag", genMatching_fatjet_spectator_flag)
-			self.out.fillBranch("diHadronic_FatJet_resonantFlag", genMatching_fatjet_resonant_flag)
-			
-			self.out.fillBranch("diHadronic_cleanedAK4s_spectatorFlag_topMatching", genMatching_jet_top_spectator_flag)
-			self.out.fillBranch("diHadronic_cleanedAK4s_resonantFlag_topMatching", genMatching_jet_top_resonant_flag)
-			
-			self.out.fillBranch("diHadronic_cleanedAK4s_spectatorFlag_bMatching", genMatching_jet_b_spectator_flag)
-			self.out.fillBranch("diHadronic_cleanedAK4s_resonantFlag_bMatching", genMatching_jet_b_resonant_flag)
-	'''
 				
 	setattr(event,"n"+self.outputName,len(pdg_list))
 		          

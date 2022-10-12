@@ -70,12 +70,14 @@ class BTagSelection(Module):
         
         for outputName in self.outputName_list:
 		self.out.branch("n"+outputName, "I")
-		self.out.branch(outputName+"_genJetIdx", "I", lenVar="n"+outputName)
+		if not Module.globalOptions["isData"]:
+			self.out.branch(outputName+"_genJetIdx", "I", lenVar="n"+outputName)
 		self.out.branch(outputName+"_btagDeepFlavB", "F", lenVar="n"+outputName)
 		for variable in self.storeKinematics:
 		    self.out.branch(outputName+"_"+variable, "F", lenVar="n"+outputName)
-		for variable in self.storeTruthKeys:
-		    self.out.branch(outputName+"_"+variable, "F", lenVar="n"+outputName)
+		if not Module.globalOptions["isData"]:
+			for variable in self.storeTruthKeys:
+			    self.out.branch(outputName+"_"+variable, "F", lenVar="n"+outputName)
 
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
@@ -129,8 +131,8 @@ class BTagSelection(Module):
 	
 		self.out.fillBranch("n"+outputName, len(bJets[bJet_type]))
 		
-		
-		self.out.fillBranch(outputName+"_genJetIdx", map(lambda jet: getattr(jet, 'genJetIdx'), bJets[bJet_type]))
+		if not Module.globalOptions["isData"]:
+			self.out.fillBranch(outputName+"_genJetIdx", map(lambda jet: getattr(jet, 'genJetIdx'), bJets[bJet_type]))
 		self.out.fillBranch(outputName+"_btagDeepFlavB", map(lambda jet: getattr(jet, 'btagDeepFlavB'), bJets[bJet_type]))
 		#print("b jet idxtogen ", list(map(lambda jet: getattr(jet, 'genJetIdx'), bJets)))        	
 		
@@ -138,9 +140,9 @@ class BTagSelection(Module):
 		    self.out.fillBranch(outputName+"_"+variable,
 		                        map(lambda jet: getattr(jet, variable), bJets[bJet_type]))
 
-		for variable in self.storeTruthKeys:
-		    self.out.fillBranch(outputName+"_"+variable,
-		                        map(lambda jet: getattr(jet, variable), bJets[bJet_type]))
+		if not Module.globalOptions["isData"]:
+			for variable in self.storeTruthKeys:
+		    		self.out.fillBranch(outputName+"_"+variable, map(lambda jet: getattr(jet, variable), bJets[bJet_type]))
 
 
         	setattr(event, outputName, bJets[bJet_type])

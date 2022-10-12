@@ -113,7 +113,7 @@ class DoubleElectronTriggerSelection(Module):
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
         
-        self.out.branch(self.outputName+"_flag","I")
+        self.out.branch(self.outputName+"_DiEl_flag","I")
         
         
         if not self.globalOptions["isData"] and self.storeWeights:
@@ -151,7 +151,7 @@ class DoubleElectronTriggerSelection(Module):
         
         
         if Module.globalOptions["year"] == '2016' or Module.globalOptions["year"] == '2016preVFP':
-            onlineTrg_flag = event.HLT_Ele27_WPTight_Gsf
+            onlineTrg_flag = event.HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL>0
 
         elif Module.globalOptions["year"] == '2017':
 		onlineTrg_flag = event.HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL>0
@@ -169,7 +169,7 @@ class DoubleElectronTriggerSelection(Module):
 	                #matchedElectrons_charge.append(self.triggerMatched(electron, triggerObjects)[1])
 	
         elif Module.globalOptions["year"] == '2018':
-            onlineTrg_flag = event.HLT_Ele32_WPTight_Gsf
+            onlineTrg_flag = event.HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL>0
         
 	'''
 	AMBIGUITIES CHECK
@@ -201,20 +201,22 @@ class DoubleElectronTriggerSelection(Module):
 				occ_sharedTrgObj_idx = [k[i] for k in matchedElectrons if k.get(i)]
 			        if len(occ_sharedTrgObj_idx)==nmatchedElectrons:
 					if max(map(len, matchedElectrons)) == matchedElectrons.index(min(matchedElectrons,key=lambda x:x[i])):
-				                print("evento cattivo electron")
+				                #print("evento cattivo electron")
 				                trigger_flag=0
         			else: 
 					trigger_flag = 1
-					print("evento ok electron")
+					#print("evento ok electron")
 			
         
-        self.out.fillBranch(self.outputName+"_flag", trigger_flag)
-
+        #self.out.fillBranch(self.outputName+"_flag", trigger_flag)
+        self.out.fillBranch(self.outputName+"_DiEl_flag", onlineTrg_flag)
             
         if not Module.globalOptions["isData"] and self.storeWeights:
             self.out.fillBranch(self.outputName+"_weight_trigger_{}_nominal".format(Module.globalOptions['year'].replace('preVFP','')),weight_trigger_nominal)
             self.out.fillBranch(self.outputName+"_weight_trigger_{}_up".format(Module.globalOptions['year'].replace('preVFP','')),weight_trigger_up)
             self.out.fillBranch(self.outputName+"_weight_trigger_{}_down".format(Module.globalOptions['year'].replace('preVFP','')),weight_trigger_down)
+
+	setattr(event, self.outputName+"_DiEl_flag", onlineTrg_flag)	
 
         return True
         

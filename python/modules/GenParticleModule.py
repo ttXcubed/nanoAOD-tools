@@ -133,20 +133,31 @@ class GenParticleModule(Module):
 	#print("gen P fj ", genP_matchedToFatJet_pdgId_list)
 	#print("gen P j ", genP_matchedToJet_pdgId_list)
 
-	#for mu in muons:
-	#	print('mu charge :', mu.charge)
-	#	print('mu genPartFlav:', mu.genPartFlav)
-	#	for ig, gp in enumerate(genP_firstcopy_id): 
-	#		if mu.genPartIdx==gp:
-	#			print('mu genPart asso: ', genParticles[mu.genPartIdx].pdgId)
-	#			print('madre mu genPart asso: ', genParticles[genP_firstcopy_mother_idx[ig]].pdgId)
-	#			#print('madre idx mu genPart asso: ', genParticles[genP_firstcopy_mother_idx[ig]])
+	'''
+	for mu in muons:
+		#print('mu charge :', mu.charge)
+		#print('mu genPartFlav:', mu.genPartFlav)
+		for ig, gp in enumerate(genP_firstcopy_id): 
+			if mu.genPartIdx==gp:
+				#print('mu genPart asso: ', genParticles[mu.genPartIdx].pdgId)
+				#print('madre mu genPart asso: ', genParticles[genP_firstcopy_mother_idx[ig]].pdgId)
+				#print('madre idx mu genPart asso: ', genParticles[genP_firstcopy_mother_idx[ig]])
+				for i, ak8 in enumerate(fatjets):
+					if ak8.genJetAK8Idx in genFatJetIdx_list:
+						#print(genP_matchedToFatJet_pdgId_list[i])
+						#print(math.sqrt((mu.eta - fatjets[i].eta)**2 + (self.deltaPhi(mu.phi,fatjets[i].phi))**2))
+					else: continue
 
-	#for e in electrons:
-	#	print('e charge :', e.charge)
-	#	print('e genPartFlav:', e.genPartFlav)
-	#	print('e genPart asso: ', genParticles[e.genPartIdx].pdgId) 
-
+	for e in electrons:
+		#print('e charge :', e.charge)
+		#print('e genPartFlav:', e.genPartFlav)
+		#print('e genPart asso: ', genParticles[e.genPartIdx].pdgId) 
+		for i, ak8 in enumerate(fatjets):
+					if ak8.genJetAK8Idx in genFatJetIdx_list:
+						#print(genP_matchedToFatJet_pdgId_list[i])
+						#print(math.sqrt((e.eta - fatjets[i].eta)**2 + (self.deltaPhi(e.phi,fatjets[i].phi))**2))
+					else: continue
+	'''
 
 	jet_flavor_list, fatjet_flavor_list = [],[]
 

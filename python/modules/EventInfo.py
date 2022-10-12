@@ -27,16 +27,20 @@ class EventInfo(Module):
             variable[0](self.out)
         
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
-    	nGenWeight_parameter = ROOT.TParameter(float)("sumGenWeights", self.nGenWeights)
-    	outputFile.cd()
-    	nGenWeight_parameter.Write() 
+    	if not Module.globalOptions["isData"]:
+            nGenWeight_parameter = ROOT.TParameter(float)("sumGenWeights", self.nGenWeights)
+            outputFile.cd()
+            nGenWeight_parameter.Write() 
+        
         pass
         
     def analyze(self, event):
     	#nGenWeights = 0 #sum of the genWeights for all the samples
-    	self.nGenWeights += event.Generator_weight
-    
+    	if not Module.globalOptions["isData"]:
+            self.nGenWeights += event.Generator_weight
+        
         for variable in self.storeVariables:
+        
             variable[1](self.out,event)
         return True
         
