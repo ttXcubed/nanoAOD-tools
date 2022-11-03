@@ -19,12 +19,14 @@ from DoubleLeptonTriggerSelection import DoubleLeptonTriggerSelection
 #muons
 from SingleMuonTriggerSelection import SingleMuonTriggerSelection
 from MuonSelection import MuonSelection
+from MuonSFProducer import MuonSFProducer
 from MuonVeto import MuonVeto
 
 #electrons
 from SingleElectronTriggerSelection import SingleElectronTriggerSelection
 from ElectronSelection import ElectronSelection
 from ElectronVeto import ElectronVeto
+from ElectronSFProducer import ElectronSFProducer
 
 #aux
 from EventSkim import EventSkim
