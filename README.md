@@ -61,7 +61,7 @@ The script accepts the following arguments:
 * `--year` needs to be one of the following: '2016','2016preVFP','2017','2018' (default: '2017')
 * `--isSignal` optional flag to store additional information for the signal (e.g. parton/particle level observables, LHE weights) (default: false)
 * `--isData` optional flag to remove gen-level information when running on data (default: false)
-* `--trigger` needed flag to select the type of dilepton trigger (only needed when processing data)
+* `--trigger` needed flag to select the type of dilepton trigger (only needed when processing data); needs to be one of the following: 'mumu', 'emu', 'ee'
 * `--nosys` optional flag to remove all systematics (default: false)
 * `--invid` optional flag to invert the lepton ID/isolation which can be used for QCD estimation (default: false)
 * `--maxEvents=<N>` optional flag to reduce the number of events for testing
