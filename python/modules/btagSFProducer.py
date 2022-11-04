@@ -278,3 +278,4 @@ class btagSFProducer(Module):
         if syst == 'jesUp': syst = 'jesTotalUp'
         elif syst == 'jesDown': syst = 'jesTotalDown'
         return syst
+

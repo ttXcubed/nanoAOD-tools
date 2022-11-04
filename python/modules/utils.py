@@ -60,9 +60,13 @@ def deltaR(j1, j2):
         deltaPhi(j1.phi, j2.phi)**2
     )
 
+def deltaPt(j1,j2):
+	return abs((j1.pt-j2.pt)/j2.pt)
+
 
 def getHist(relFileName, histName):
-    rootFile = ROOT.TFile(os.path.expandvars("$CMSSW_BASE/src/"+relFileName))
+    #rootFile = ROOT.TFile(os.path.expandvars("$CMSSW_BASE/src/"+relFileName))
+    rootFile = ROOT.TFile(relFileName)
     hist = rootFile.Get(histName)
     if not hist:
         raise Exception("Hist file '"+histName +
@@ -74,7 +78,8 @@ def getHist(relFileName, histName):
 
 
 def getGraph(relFileName, graphName):
-    rootFile = ROOT.TFile(os.path.expandvars("$CMSSW_BASE/src/"+relFileName))
+    #rootFile = ROOT.TFile(os.path.expandvars("$CMSSW_BASE/src/"+relFileName))
+    rootFile = ROOT.TFile(relFileName)
     graph = rootFile.Get(graphName)
     if not graph:
         raise Exception("Graph file '"+graphName +
