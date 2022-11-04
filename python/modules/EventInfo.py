@@ -42,7 +42,7 @@ class EventInfo(Module):
             self.nGenWeights += event.Generator_weight
         
         else: 
-            with open(os.environ['CMSSW_BASE']+"/src/PhysicsTools/NanoAODTools/processors/13TeV_UL_Era_runNumber.yaml") as yaml_f:
+            with open(os.environ['CMSSW_BASE']+"/src/PhysicsTools/NanoAODTools/data/13TeV_UL_Era_runNumber.yaml") as yaml_f:
                 try:
                     era_yaml = yaml.safe_load(yaml_f)
                 except yaml.YAMLError as exc:
