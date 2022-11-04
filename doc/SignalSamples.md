@@ -56,21 +56,11 @@ ttH, H->bb:
 * `QCD^4` (nominal yt=400 GeV): /TTTT_yt400_5f_LO_QCD4_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220328-a3a6df684a2ee70993df2a83f7dfbc4d/USER
 * `QCD^4+QCD^2*QED^2+interference` (nominal yt=400 GeV): /TTTT_yt400_5f_LO_QCD_plus_QED_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220328-a3a6df684a2ee70993df2a83f7dfbc4d/USER
 
-TopPhilic ttbar associated signal (ttbar+V1, V1 -> ttbar):
-* /TTV1ToTT_TopPhilic_m1000_width10_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_m1000_width1_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_m2000_width10_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_m2000_width1_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_m500_width10_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_m500_width1_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-
-TopPhilic single top (t+tW) associated signal (qt/tW+V1, V1 -> ttbar):
-* /TTV1ToTT_TopPhilic_ST_m1000_width10_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_ST_m1000_width1_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_ST_m2000_width10_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_ST_m2000_width1_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_ST_m500_width10_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
-* /TTV1ToTT_TopPhilic_ST_m500_width1_TuneCP5_13TeV-madgraph-pythia8/mkomm-nanoaodUL17v9_220223-76de701442013e6ff941c86cd482e64d/USER
+TopPhilic ttbar associated signal (ttbar+V1, V1 -> ttbar; V1 mass 400 to 3000 GeV):
+* /TopPhilic_tttt_masscan_relwidth4/mkomm-miniaodUL17v2_220913-06bb3a7ea4bd9e502afa5d73860d52d3/USER
+* /TopPhilic_tttt_masscan_relwidth10/mkomm-miniaodUL17v2_220913-06bb3a7ea4bd9e502afa5d73860d52d3/USER
+* /TopPhilic_tttt_masscan_relwidth20/mkomm-miniaodUL17v2_220913-06bb3a7ea4bd9e502afa5d73860d52d3/USER
+* /TopPhilic_tttt_masscan_relwidth50/mkomm-miniaodUL17v2_220913-06bb3a7ea4bd9e502afa5d73860d52d3/USER
 
 Zprime_TB ttbar associated signal (ttbar+Y1, Y1 -> bbbar):
 * /TTY1ToBB_5FS_Zprime_TB_m1000_width10_TuneCP5_13TeV-madgraph-pythia8/mullerd-RunIISummer20UL17_NanoAODv9-76de701442013e6ff941c86cd482e64d/USER
