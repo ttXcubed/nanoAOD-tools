@@ -13,7 +13,6 @@ from GenParticleModule_Signal import GenParticleModule_Signal
 from DoubleMuonTriggerSelection import DoubleMuonTriggerSelection
 from DoubleElectronTriggerSelection import DoubleElectronTriggerSelection
 from ElectronMuonTriggerSelection import ElectronMuonTriggerSelection
-from TriggerMatching import TriggerMatching 
 from DoubleLeptonTriggerSelection import DoubleLeptonTriggerSelection
 
 #muons
@@ -44,9 +43,4 @@ from PUWeightProducer import puWeightProducer, PUWeightProducer_dict
 from GenWeightProducer import GenWeightProducer
 from TopPtWeightProducer import TopPtWeightProducer
 
-#reco
-from EventObservables import EventObservables
-from TopNNReco import TopNNRecoInputs
 
-#reco obj
-from EventReconstruction import EventReconstruction
