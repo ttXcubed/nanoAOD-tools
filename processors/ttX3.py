@@ -64,7 +64,7 @@ minMuonPt =     {'2016': 15., '2016preVFP': 15., '2017': 15., '2018': 15.}
 minElectronPt = {'2016': 15., '2016preVFP': 15., '2017': 15., '2018': 15.}
 
 if args.isData:
-    with open('GoldenJSON/13TeV_UL'+args.year+'_GoldenJSON.txt', 'r') as f:
+    with open(os.environ['CMSSW_BASE']+"/src/PhysicsTools/NanoAODTools/data/GoldenJSON/13TeV_UL"+args.year+"_GoldenJSON.txt", 'r') as f:
         data_json = json.load(f)
 
     filtered_data=dict()
@@ -72,6 +72,8 @@ if args.isData:
         filtered_data[int(run)] = list()
         for lumi in data_json[run]:
             filtered_data[int(run)].extend(range(lumi[0],lumi[1]+1))
+
+
 
 #b-tagging working point
 b_tagging_wpValues = {
