@@ -1,14 +1,10 @@
-import os
-import sys
 import math
-import json
-import ROOT
-import random
+import sys
 
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 
-from utils import getGraph, getHist, combineHist2D, getSFXY, deltaR
+from utils import deltaR
 
 class MuonSelection(Module):
     VERYTIGHT = 1
@@ -43,131 +39,7 @@ class MuonSelection(Module):
             raise Exception("Unsupported ID or ISO")
 
         self.triggerObjectCollection = lambda event: Collection(event, "TrigObj") if triggerMatch else lambda event: []
-        ''' 
-        if Module.globalOptions["year"] == '2016preVFP':
-                
-        elif Module.globalOptions["year"] == '2016':
-            #tight id efficiency
-            idTightSFBToF = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2016/RunBCDEF_SF_ID.root",
-                "NUM_TightID_DEN_genTracks_eta_pt"
-            )
-            idTightSFGToH = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2016/RunGH_SF_ID.root",
-                "NUM_TightID_DEN_genTracks_eta_pt"
-            )
-            self.idTightSFHist = combineHist2D(
-                idTightSFBToF,
-                idTightSFGToH,
-                1.-16226.5/35916.4,
-                16226.5/35916.4
-            )
-            
-            #loose id efficiency
-            idLooseSFBToF = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2016/RunBCDEF_SF_ID.root",
-                "NUM_LooseID_DEN_genTracks_eta_pt"
-            )
-            idLooseSFGToH = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2016/RunGH_SF_ID.root",
-                "NUM_LooseID_DEN_genTracks_eta_pt"
-            )
 
-            self.idLooseSFHist = combineHist2D(
-                idLooseSFBToF,
-                idLooseSFGToH,
-                1.-16226.5/35916.4,
-                16226.5/35916.4
-            )
-            
-            
-            #tight iso and tight id efficiency
-            isoTightTightSFBToF = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2016/RunBCDEF_SF_ISO.root",
-                "NUM_TightRelIso_DEN_TightIDandIPCut_eta_pt"
-            )
-            isoTightTightSFGToH = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2016/RunGH_SF_ISO.root",
-                "NUM_TightRelIso_DEN_TightIDandIPCut_eta_pt"
-            )
-            self.isoTightTightSFHist = combineHist2D(
-                isoTightTightSFBToF,
-                isoTightTightSFGToH,
-                1.-16226.5/35916.4,
-                16226.5/35916.4
-            )
-            
-            #loose iso and loose id efficiency
-            isoLooseLooseSFBToF = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2016/RunBCDEF_SF_ISO.root",
-                "NUM_LooseRelIso_DEN_LooseID_eta_pt"
-            )
-            isoLooseLooseSFGToH = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2016/RunGH_SF_ISO.root",
-                "NUM_LooseRelIso_DEN_LooseID_eta_pt"
-            )
-            self.isoLooseLooseSFHist = combineHist2D(
-                isoLooseLooseSFBToF,
-                isoLooseLooseSFGToH,
-                1.-16226.5/35916.4,
-                16226.5/35916.4
-            )
-
-        elif Module.globalOptions["year"] == '2017':
-            #tight id efficiency
-            self.idTightSFHist = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2017/RunBCDEF_SF_ID.root",
-                "NUM_TightID_DEN_genTracks_pt_abseta"
-            )
-            
-            #loose id efficiency
-            self.idLooseSFHist = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2017/RunBCDEF_SF_ID.root",
-                "NUM_LooseID_DEN_genTracks_pt_abseta"
-            )
-            
-            #tight iso and tight id efficiency
-            self.isoTightTightSFHist = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2017/RunBCDEF_SF_ISO.root",
-                "NUM_TightRelIso_DEN_TightIDandIPCut_pt_abseta"
-            )
-            
-            #loose iso and loose id efficiency
-            self.isoLooseLooseSFHist = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2017/RunBCDEF_SF_ISO.root",
-                "NUM_LooseRelIso_DEN_LooseID_pt_abseta"
-            )
-
-        elif Module.globalOptions["year"] == '2018':
-
-            #tight id efficiency
-            self.idTightSFHist = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2018/EfficienciesStudies_2018_rootfiles_RunABCD_SF_ID.root",
-                "NUM_TightID_DEN_TrackerMuons_pt_abseta"
-            )
-            
-            #loose id efficiency
-            self.idLooseSFHist = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2018/EfficienciesStudies_2018_rootfiles_RunABCD_SF_ID.root",
-                "NUM_LooseID_DEN_TrackerMuons_pt_abseta"
-            )
-            
-            #tight iso and tight id efficiency
-            self.isoTightTightSFHist = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2018/EfficienciesStudies_2018_rootfiles_RunABCD_SF_ISO.root",
-                "NUM_TightRelIso_DEN_TightIDandIPCut_pt_abseta"
-            )
-            
-            #loose iso and loose id efficiency
-            self.isoLooseLooseSFHist = getHist(
-                "PhysicsTools/NanoAODTools/data/muon/2018/EfficienciesStudies_2018_rootfiles_RunABCD_SF_ISO.root",
-                "NUM_LooseRelIso_DEN_LooseID_pt_abseta"
-            )
-
-        else:
-            raise Exception("Error - invalid year for muon efficiencies")
-
-        '''
         if muonID==MuonSelection.TIGHT:
             self.muonIdFct = lambda muon: muon.tightId==1
             #self.muonIdSF = self.idTightSFHist
@@ -176,50 +48,7 @@ class MuonSelection(Module):
             #self.muonIdSF = self.idLooseSFHist
         elif muonID==MuonSelection.NONE:
             self.muonIdFct = lambda muon: True
-            #self.muonIdSF = self.idLooseSFHist
-            
-            
-        if muonIso==MuonSelection.VERYTIGHT:
-            self.muonIsoFct = lambda muon: muon.pfRelIso04_all<0.06
-            '''
-            if muonID==MuonSelection.TIGHT:
-                #TODO: need to use very tight SFs
-                self.muonIsoSF = self.isoTightTightSFHist
-            else:
-                raise Exception("Error - unsupported muon ID/iso combination")
-            '''
-        elif muonIso==MuonSelection.TIGHT:
-            self.muonIsoFct = lambda muon: muon.pfRelIso04_all<0.15
-            '''
-            if muonID==MuonSelection.TIGHT:
-                self.muonIsoSF = self.isoTightTightSFHist
-            else:
-                raise Exception("Error - unsupported muon ID/iso combination")
-            '''
-        elif muonIso==MuonSelection.LOOSE:
-            self.muonIsoFct = lambda muon: muon.pfRelIso04_all<0.25
-            '''
-            if muonID==MuonSelection.LOOSE:
-                self.muonIsoSF = self.isoLooseLooseSFHist
-            else:
-                raise Exception("Error - unsupported muon ID/iso combination")
-            '''
-        elif muonIso==MuonSelection.NONE:
-            self.muonIsoFct = lambda muon: True
-            '''
-            if muonID==MuonSelection.TIGHT:
-                self.muonIsoSF = self.isoLooseTightSFHist
-            elif muonID==MuonSelection.LOOSE:
-                self.muonIsoSF = self.isoLooseLooseSFHist
-            elif muonID==MuonSelection.NONE:
-                self.muonIsoSF = self.isoLooseLooseSFHist
-            else:
-                raise Exception("Error - unsupported muon ID/iso combination")
-            '''
-        elif muonIso==MuonSelection.INV:
-            self.muonIsoFct = lambda muon: muon.pfRelIso04_all>0.25 and muon.pfRelIso04_all<0.8
-            self.storeWeights = False
-        
+            #self.muonIdSF = self.idLooseSFHist        
 
     def triggerMatched(self, muon, trigger_object):
         if self.triggerMatch:
@@ -229,11 +58,11 @@ class MuonSelection(Module):
                     continue
                 trig_deltaR = min(trig_deltaR, deltaR(trig_obj, muon))
             if trig_deltaR < 0.3:
-                return True
+                return True, trigger_object._idx
             else:
-                return False
+                return False, None
         else:
-            return True    
+            return True, None    
  
     def beginJob(self):
         pass
@@ -247,15 +76,6 @@ class MuonSelection(Module):
 
         for variable in self.storeKinematics:
             self.out.branch(self.outputName+"_"+variable,"F",lenVar="n"+self.outputName)
-            
-        if not Module.globalOptions["isData"] and self.storeWeights:
-            self.out.branch(self.outputName+"_weight_id_nominal","F")
-            self.out.branch(self.outputName+"_weight_id_up","F")
-            self.out.branch(self.outputName+"_weight_id_down","F")
-            
-            self.out.branch(self.outputName+"_weight_iso_nominal","F")
-            self.out.branch(self.outputName+"_weight_iso_up","F")
-            self.out.branch(self.outputName+"_weight_iso_down","F")
         
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
@@ -265,20 +85,21 @@ class MuonSelection(Module):
         muons = self.inputCollection(event)
 
         triggerObjects = self.triggerObjectCollection(event)
+        matched_trgObjs_id = []
 
         selectedMuons = []
         unselectedMuons = []
-        
-        weight_id_nominal = 1.
-        weight_id_up = 1.
-        weight_id_down = 1.
-
-        weight_iso_nominal = 1.
-        weight_iso_up = 1.
-        weight_iso_down = 1.
-        
+               
         #https://twiki.cern.ch/twiki/bin/view/CMS/SWGuideMuonIdRun2#Tight_Muon
         for muon in muons:
+
+            # trigger matching
+            hasTriggerObj, matched_trgObjs_id = self.triggerMatched(muon, triggerObjects)
+            if len(muons)>1: 
+                print(self.triggerMatched(muon, triggerObjects))
+                sys.exit(1)
+            # matched_trgObjs_id.append(self.triggerMatched(muon, triggerObjects)[1])
+
             if muon.pt>self.muonMinPt \
             and math.fabs(muon.eta)<self.muonMaxEta \
             and self.muonIdFct(muon) \
@@ -286,27 +107,7 @@ class MuonSelection(Module):
             and self.triggerMatched(muon, triggerObjects):
             
                 selectedMuons.append(muon)
-                #TODO
-                '''
-                if not Module.globalOptions["isData"] and self.storeWeights:
-                    if Module.globalOptions["year"] == 2016:
-                        weight_id,weight_id_err = getSFXY(self.muonIdSF,muon.eta,muon.pt)
-                    elif Module.globalOptions["year"] == 2017 or Module.globalOptions["year"] == 2018:
-                        weight_id,weight_id_err = getSFXY(self.muonIdSF,muon.pt, abs(muon.eta))
-                        
-                    weight_id_nominal *= weight_id
-                    weight_id_up *=  weight_id+weight_id_err
-                    weight_id_down *= weight_id-weight_id_err
-                    
-                    if Module.globalOptions["year"] == 2016:
-                        weight_iso,weight_iso_err = getSFXY(self.muonIsoSF,muon.eta,muon.pt)
-                    elif Module.globalOptions["year"] == 2017 or Module.globalOptions["year"] == 2018:
-                        weight_iso,weight_iso_err = getSFXY(self.muonIsoSF,muon.pt, abs(muon.eta))
-
-                    weight_iso_nominal *= weight_iso
-                    weight_iso_up *= weight_iso+weight_iso_err
-                    weight_iso_down *= weight_iso-weight_iso_err
-                '''
+                
             else:
                 unselectedMuons.append(muon)
 
