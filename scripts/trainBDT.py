@@ -1,4 +1,7 @@
-import os, sys
+import os, sys, shutil
+import time
+
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
@@ -19,21 +22,25 @@ import gc
 
 import matplotlib
 import matplotlib.pyplot as plt
+
 matplotlib.use('Agg')
+
+from scipy.interpolate import interp1d
+
+from resample import multi_dim_resample
 
 inputs = [
     'fractional_subjet_pt', 'min_pairwise_subjets_mass', 'mass', 'nsubjets', 'tau3_over_tau2', 'pt'
 ]
 
-xgboost_params = {
-    'n_estimators': 500, 'learning_rate': .1, 'max_depth': 4, 'min_child_weight': 0.01
-}
-
 pT_distribution_plot = False
+resampling = True
 
-def loading_and_processing_h5(file):
+binning=np.arange(0.,10000,100) #np.logspace(0,4,100)
+
+def read_and_filter(file):
     
-    df = pd.read_hdf(file)
+    df = pd.read_hdf(file)    
     df = df.fillna(False)
     # skimming the df sgn/bkg -> pure hadronic jets/pure qcd   
     if 'ttX_mass' in str(file):
@@ -49,81 +56,141 @@ def loading_and_processing_h5(file):
         df = df[df['has_gluon_or_quark_not_fromTop'] | df['has_other']]
         df = df[inputs]
         df['label'] = 0
-    return df    
+    return df
 
-def pT_plot(df, path):
+def loading_and_processing_h5(files, output_dir, chunk_size=50):
+    # process the files in chunks and save each merged DataFrame to a temporary .h5 file
+    current_chunk = 1
+    total_chunks = len(files) // chunk_size + (1 if len(files) % chunk_size else 0)
+    
+    for idx_file in range(0, len(files), chunk_size):
+        print(f"Processing files-chunk n.{current_chunk} out of {total_chunks}")
+        file_list = files[idx_file:idx_file+chunk_size]
 
-    # Separate the data based on the label
-    pt_sgn = df[df["label"] == 1]["pt"]
-    pt_bkg = df[df["label"] == 0]["pt"]
+        # creating a pool of processes to speed up the loading/processing of the .h5 files
+        with Pool() as p:
+            dfs = p.map(read_and_filter, file_list)
+        
+        merged_df = pd.concat(dfs, ignore_index=True)
+        # Save the merged DataFrame to a temporary .h5 file
+        temp_dir = output_dir / 'temp' 
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        # temp_dir.chmod(0o777)
+        fpath = temp_dir / f'temp_{idx_file}.h5'
+        merged_df.to_hdf(fpath, key='df')
 
-    # Plot
-    plt.figure(figsize=(10, 6))
+        current_chunk += 1
 
-    plt.hist(pt_sgn, bins=30, alpha=0.5, label=f"pure hadronic top: {len(pt_sgn)}")
-    plt.hist(pt_bkg, bins=30, alpha=0.5, label=f"pure QCD : {len(pt_bkg)}")
+    # Concatenate the temporary .h5 files into a single file
+    temp_files = [temp_dir / f'temp_{idx_file}.h5' for idx_file in range(0, len(files), chunk_size)]
+    dfs = [pd.read_hdf(file) for file in temp_files]
+    df = pd.concat(dfs, ignore_index=True)
+    df = df.fillna(False)
+
+    # Save the final DataFrame to a .h5 file
+    fpath = output_dir / 'all_jets.h5'
+    df.to_hdf(fpath, key='df')
+
+    # Delete the temp directory
+    shutil.rmtree(temp_dir)
+
+    return
+
+def pT_plot(ptBkg, ptSig, fpath, binning=binning):
+
+    plt.figure()
+    plt.hist(ptBkg,bins=binning,alpha=0.5,label=f"pure QCD: {len(ptBkg)}", density=True)
+    plt.hist(ptSig,bins=binning,alpha=0.5,label=f"pure hadronic top : {len(ptSig)}", density=True, histtype='step', color='red', linewidth=2)
+    plt.legend()
+    # plt.xscale('log')
+    plt.xlim(0,2000)
 
     plt.xlabel('HOTVR pT')
-    plt.ylabel('HOTVR')
+    # plt.ylabel('HOTVR')
+    plt.ylabel('Normalized Counts')
     plt.legend(loc='upper right')
-    plt.grid(True)
+    # plt.grid(True)
     plt.tight_layout()
 
     # Save the figure
-    fpath = path / 'pT_distribution_1_vs_0.png'
     plt.savefig(fpath, dpi=300)
     print(f"Saving file: {fpath}")
 
-def creating_training_data(df, path):
-    features_array, label_array = [], []
+def cut_based_tagger_ROC(features, label):
+    frac_pt_thr, min_mass_pair_thr, mass_thr, nsubj_thr, tau3VStau2_thr = 0.8, 50, [140.,220.], 3, 0.56
 
-    label_array = df['label'].values.reshape(-1, 1)
-    features_array = df[[input for input in inputs if input != 'pt']].values # to be modified such to avoid 'pt' in the dataframe
+    true_positive_array = features[
+        (features[:,0]<frac_pt_thr) & (features[:,1]>min_mass_pair_thr)  
+        & (features[:,2]>min(mass_thr)) & (features[:,2]<max(mass_thr)) 
+        & (features[:,3]>=nsubj_thr) & (features[:,4]<tau3VStau2_thr) & (label==1)
+    ]
+    all_true = label[label==1]
 
-    print(f"Total samples: {features_array.shape}")
-    # only 20% for training
-    features_array, _, label_array, _, = sklearn.model_selection.train_test_split(
-        features_array,label_array, test_size=0.8,shuffle=True, random_state=76177
-    )
+    false_positive_array = features[
+        (features[:,0]<frac_pt_thr) & (features[:,1]>min_mass_pair_thr) 
+        & (features[:,2]>min(mass_thr)) & (features[:,2]<max(mass_thr)) 
+        & (features[:,3]>=nsubj_thr) & (features[:,4]<tau3VStau2_thr) & (label==0)
+    ]
+    all_false = label[label==0]
 
-    path = path / 'trainBDT_outputs'
-    path.mkdir(parents=True, exist_ok=True)
-    path.chmod(0o777)
-    fpath = path / 'trainData.npz'
-    np.savez_compressed(fpath,features=features_array,labels=label_array)
+    print('\n### Cut-based efficiencies')
+    print(f"Signal efficiency: {true_positive_array.shape[0]/all_true.shape[0]}; Background efficiency: {false_positive_array.shape[0]/all_false.shape[0]}")
 
-def draw_loss(path, results):
+    return true_positive_array.shape[0]/all_true.shape[0], false_positive_array.shape[0]/all_false.shape[0]
+
+def creating_training_data(arrays, fpath):
+
+    np.savez_compressed(fpath,features=arrays[0],labels=arrays[1])
+
+    return
+
+def draw_loss(path, results, **kwargs):
     plt.figure(figsize=[7.3, 6.5])
-    plt.plot(np.arange(xgboost_params['n_estimators']),results['validation_0']['logloss'],color='darkgray',linewidth=2, linestyle='-',label='Train')
-    plt.plot(np.arange(xgboost_params['n_estimators']),results['validation_1']['logloss'],color='royalblue',linewidth=3, linestyle='--',label='Test')
+    plt.plot(np.arange(kwargs['n_estimators']),results['validation_0']['logloss'],color='darkgray',linewidth=2, linestyle='-',label='Train')
+    plt.plot(np.arange(kwargs['n_estimators']),results['validation_1']['logloss'],color='royalblue',linewidth=3, linestyle='--',label='Test')
     plt.ylabel("log(Loss)")
     plt.xlabel("#Estimators")
-    plt.tight_layout(rect=[0., 0, 1, 0.91])
+    # plt.tight_layout(rect=[0., 0, 1, 0.91])
     plt.legend(ncol=2, bbox_to_anchor=(0, 1.0), loc="lower left")
     plt.savefig(path)
     plt.close()
     print(f"Saving file: {path}")
     path.chmod(0o777)
 
-def draw_roc(path, rates):
+def draw_roc(path, rates, **kwargs):
     plt.figure(figsize=[7.3, 6.5])
     plt.plot(rates['true_positive_train'], rates['false_positive_train'], color='darkgray',linewidth=2, linestyle='-',label="Train")
     plt.plot(rates['true_positive_test'], rates['false_positive_test'], color='royalblue',linewidth=3, linestyle='--',label="Test")
-    bkgIdx = np.argmin(np.abs(rates['false_positive_test']-0.1))
-    plt.plot(
-        [rates['true_positive_test'][bkgIdx],rates['true_positive_test'][bkgIdx]],[1e-3,rates['false_positive_test'][bkgIdx]],
-        color='black',linewidth=1, linestyle='-'
-        )
+    if 'cut_based_efficiencies' in kwargs.keys(): 
+        plt.scatter(kwargs['cut_based_efficiencies'][0], kwargs['cut_based_efficiencies'][1], color='red', marker='*', s=150, label='Cut based tagger')   
+    
+    f = interp1d(rates['true_positive_test'], rates['false_positive_test'], kind='linear', fill_value='extrapolate')
+    y_train_at_cut_based_eff = f(kwargs['cut_based_efficiencies'][0]).item()
+    # print(y_train_at_cut_based_eff)
+
+    # Add the y-values to the y-ticks - DOES NOT WORK ?!
+    # yticks = list(plt.gca().get_yticks())
+    # yticks.extend(list(rates['false_positive_train'].flatten()))
+    # yticks.extend([y_train_at_cut_based_eff, kwargs['cut_based_efficiencies'][1]])
+    # yticks = sorted(list(set(yticks)))
+    # special_ticks = list(rates['false_positive_train'].flatten()) + [y_train_at_cut_based_eff, kwargs['cut_based_efficiencies'][1]]
+    # plt.yticks(yticks, [f'{tick:.3f}' if tick in special_ticks else '' for tick in yticks])
+
+    # Draw horizontal lines
+    plt.axhline(y=y_train_at_cut_based_eff, color='red', linestyle='--')
+    plt.axhline(y=kwargs['cut_based_efficiencies'][1], color='red', linestyle='--')
+
     plt.xlim([0.0,1.0])
     plt.ylim([1e-3,1.0])
     plt.yscale('log')
     plt.xlabel("Signal efficiency")
     plt.ylabel("Background efficiency")
-    plt.gca().xaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(5))
-    plt.gca().yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(5))
-    plt.grid(True, which='both', axis='both', color='black', linestyle='--', linewidth=1)
+    # plt.gca().xaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(5))
+    # plt.gca().yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(5))
+    # plt.grid(True, which='both', axis='both', color='black', linestyle='--', linewidth=1)
     plt.tight_layout(rect=[0., 0, 1, 0.91])
     plt.legend(ncol=2, bbox_to_anchor=(0, 1.0), loc="lower left")
+
     plt.savefig(path)
     plt.close()
     print(f"Saving file: {path}")
@@ -131,14 +198,14 @@ def draw_roc(path, rates):
 
 def draw_score(path, predictions):
     plt.figure(figsize=[7.3, 6.5])
-    plt.hist(predictions['train_bkg'], bins=40, range=[0,1], histtype='stepfilled', color='royalblue', label="Train bkg", alpha=0.6)
-    plt.hist(predictions['train_sgn'], bins=40, range=[0,1], histtype='stepfilled', color='orange', label="Train sig", alpha=0.6)
-    plt.hist(predictions['test_bkg'], bins=40, range=[0,1], histtype='step', color='cornflowerblue', linewidth=2, linestyle='--', label="Test bkg")
-    plt.hist(predictions['test_sgn'], bins=40, range=[0,1], histtype='step', color='gold', linewidth=2, linestyle='--', label="Test sig")
+    plt.hist(predictions['train_bkg'], bins=40, range=[0,1], histtype='stepfilled', color='cornflowerblue', label="Train bkg", alpha=0.6)
+    plt.hist(predictions['train_sgn'], bins=40, range=[0,1], histtype='stepfilled', color='gold', label="Train sig", alpha=0.6)
+    plt.hist(predictions['test_bkg'], bins=40, range=[0,1], histtype='step', color='royalblue', linewidth=2, linestyle='--', label="Test bkg")
+    plt.hist(predictions['test_sgn'], bins=40, range=[0,1], histtype='step', color='orange', linewidth=2, linestyle='--', label="Test sig")
     plt.xlim([0.0,1.0])
     plt.xlabel("Score")
     plt.ylabel("Normalized events")
-    plt.tight_layout(rect=[0., 0, 1, 0.91])
+    # plt.tight_layout(rect=[0., 0, 1, 0.91])
     plt.legend(ncol=2, bbox_to_anchor=(0, 1.0), loc="lower left")
     plt.savefig(path)
     plt.close()
@@ -148,7 +215,11 @@ def draw_score(path, predictions):
 def main(
         input_dir,
         output_dir,
-        year):
+        year,
+        n_trees,
+        learning_rate,
+        max_depth,
+        min_child_weight):
 
     # Ensure input/output dirs are Path instances.
     input_dir = Path(input_dir)
@@ -159,88 +230,101 @@ def main(
     ######### LOADING/PROCESSING THE DATAFRAME
     # Given the large number of files to be processed, the total df (all jets with inputs/labels) is available as 'all_jets.h5'
     # if it is not, the total df is generated and saved as 'all_jets.h5'
-    if os.path.exists(input_dir / f"total_jets_{year}_h5" / 'all_jets.h5'):
-        # reading all_jets.h5 if exists
-        dfs = pd.read_hdf(input_dir / f"total_jets_{year}_h5" / 'all_jets.h5')
-    else:
+    if os.path.exists(output_dir / 'all_jets.h5')==0:
         # Glob the files, and convert to a sorted list.
         # sgn and bkg files in separated list so it is easy to filter them when needed
         fnames_sgn = sorted(input_dir.glob(f"sgn_{year}_hotvr_h5/*/*.h5"))
         fnames_bkg = sorted(input_dir.glob(f"bkg_{year}_hotvr_h5/qcd*/*.h5"))  # preliminary study with only QCD files 
         fnames =  fnames_sgn + fnames_bkg
         print(f"Found {len(fnames)} files in {input_dir}")
-
-        for idx_file, fname in enumerate(fnames):
-            # print(
-            #     "Done %4.1f%% - processing: %s",
-            #     idx_file / len(fnames) * 100, fname)
-
-            df = loading_and_processing_h5(fname)
-            if df is None:
-                # If the file is empty, skip it.
-                continue
-            dfs = dfs.append(df)
-
-        # Shuffle the dataframe
-        dfs = dfs.sample(frac=1).reset_index(drop=True)
+        # files are read and processed in chunk and save in temp files that are then deleted
+        loading_and_processing_h5(fnames, output_dir)
         
-        # Saving the dataframe of all jets after the processing
-        # so it can be read faster as input h5 
-        input_dir = input_dir / f"total_jets_{year}_h5"
-        input_dir.mkdir(parents=True, exist_ok=True)
-        input_dir.chmod(0o777)
-
-        fpath = input_dir /  'all_jets.h5'
-        dfs.to_hdf(fpath, key='df', mode='w')
-        print(f"Saving file: {fpath}")
-        fpath.chmod(0o777)
-
+    # reading "all_jets.h5" if exists
+    dfs = pd.read_hdf(output_dir / 'all_jets.h5')
     if dfs.empty: 
         print("Unable to find 'all_jets.h5' or unable to process the individual files")
         sys.exit()
     
     print('### Successfully loaded the h5 with all the jets')
+    # Shuffle the dataframe
+    dfs = dfs.sample(frac=1).reset_index(drop=True)
     print(dfs)
     #########
 
-    # plotting purpose: pT distribution of the two classes
-    if pT_distribution_plot:
-        output_dir = output_dir / 'pT_distribution_sgnVSbkg'
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_dir.chmod(0o777)
-
-        pT_plot(dfs, output_dir)
-    # dfs = dfs.drop(columns='pt') # to be modified such to avoid 'pt' in the dataframe
-    inputs.remove('pt') # to be modified such to avoid 'pt' in the input list
+    output_dir = output_dir / 'trainBDT_outputs'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.chmod(0o777)
 
     ######### TRAINING-TEST SPLITTING
     # create the training set if does not exist
     print('\n### Train-test splitting')
-    if os.path.exists(output_dir / 'trainBDT_outputs' / 'trainData.npz')==0:
-        creating_training_data(dfs, output_dir)
+    features_array, label_array = [], []
+
+    if os.path.exists(output_dir / 'trainBDT_outputs' / 'trainData.npz')==0 or os.path.exists(output_dir / 'trainBDT_outputs' / 'trainData_resampled.npz')==0:    
+        print('### Creating training dataset...')
+        if resampling:
+            print('### RE-SAMPLING')
+            # jets resampling by pT
+            ptSig = dfs[dfs['label']==1]['pt'].values
+            ptBkg = dfs[dfs['label']==0]['pt'].values
+            print(f"Pre-resampling [SGN]: {ptSig.shape[0]}")
+            print(f"Pre-resampling [BKG]: {ptBkg.shape[0]}")
+
+            pT_plot(ptBkg, ptSig, output_dir / f"pT_distribution_SGNvsBKG_pre_sampling.png")
+
+            # separating bkg features from sgn features
+            bkg_data = dfs[dfs['label'] == 0][[input for input in inputs]].values
+            sgn_data = dfs[dfs['label'] == 1][[input for input in inputs]].values
+
+            # the target distribution is the sgn pT
+            # additional info on the multi_dim_resample in "resample.py"
+            targetHist, _ = np.histogram(sgn_data[:, -1], bins=binning)
+            bkg_resampled, sgn_resampled = multi_dim_resample([bkg_data, sgn_data], targetHist, binning)
+
+            ptSig = sgn_resampled[:, 5]
+            ptBkg = bkg_resampled[:, 5]
+
+            print(f"Post-resampling [SGN]: {sgn_resampled.shape[0]}")
+            print(f"Post-resampling [BKG]: {bkg_resampled.shape[0]}")
+
+            pT_plot(ptBkg, ptSig, output_dir / f"pT_distribution_SGNvsBKG_post_sampling.png")
+
+            features_array = np.vstack((bkg_resampled, sgn_resampled))
+            label_array = np.concatenate((np.zeros(len(bkg_resampled)), np.ones(len(sgn_resampled))))
+
+            creating_training_data((features_array, label_array), output_dir/f"trainData_resampled.npz")
+        else:
+            label_array = dfs['label'].values.reshape(-1, 1)
+            features_array = dfs[[input for input in inputs if input != 'pt']].values # to avoid 'pt' in the dataframe
+
+            creating_training_data((features_array, label_array), output_dir/f"trainData.npz")
+
     else: 
-        output_dir = output_dir / 'trainBDT_outputs'
-        fpath = output_dir / 'trainData.npz'
+        fpath = ''
+        if resampling: fpath = output_dir / 'trainData_resampled.npz'
+        else: fpath = output_dir / 'trainData.npz'
 
         loaded = np.load(fpath)
         features_array = loaded['features']
         label_array = loaded['labels']
 
-    print(f"Split samples {features_array.shape}")
-
     trainFeatures,testFeatures,trainLabel,testLabel, = sklearn.model_selection.train_test_split(
         features_array, label_array, test_size=0.2, shuffle=True, random_state=24155
     )
 
+    print(f"\nTotal samples {features_array.shape}")
+    print(f"Split samples -> train: {trainFeatures.shape}, test: {testFeatures.shape}")
+
     # use test=train for testing
-    testFeatures = trainFeatures
-    testLabel = trainLabel
+    # testFeatures = trainFeatures
+    # testLabel = trainLabel
 
     # ensure a one-dimensional array (*, )
     trainLabel = trainLabel.ravel()
     testLabel = testLabel.ravel()
 
-    print(f"Train/test: {trainFeatures.shape}/{testFeatures.shape}")
+    # print(f"Train/test: {trainFeatures.shape}/{testFeatures.shape}")
     # for i, inputName in enumerate(inputs):
     #     print(inputName,trainFeatures[0:10,i])
 
@@ -248,7 +332,14 @@ def main(
     gc.collect()
     #########
 
+    ######### Cut-based top tagger: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetTopTagging#Working_point_and_scale_factors
+    cut_based_efficiencies = cut_based_tagger_ROC(testFeatures, testLabel)
+
+    start_time = time.time()
     ######### XGBOOST 
+    xgboost_params = {
+    'n_estimators': n_trees, 'learning_rate': learning_rate, 'max_depth': max_depth, 'min_child_weight': min_child_weight
+    }
     print(f"\nXGBOOST PARAMETERS: {xgboost_params}")
 
     bdt = xgboost.XGBClassifier(
@@ -273,11 +364,14 @@ def main(
         eval_set=[(trainFeatures, trainLabel), (testFeatures, testLabel)], 
         verbose=False
     )
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time: {elapsed_time} seconds")
 
-    output_dir = output_dir / 'trainBDT_outputs'
+    output_dir = output_dir / "plots_and_stats"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_dir.chmod(0o777)
-    fpath = output_dir / 'hadronicTopVSQCD_bdt.bin'
+    fpath = output_dir / f"hadronicTopVSQCD_bdt_nTrees{xgboost_params['n_estimators']}_maxDepth{xgboost_params['max_depth']}_learningRate{xgboost_params['learning_rate']}_minChildWeight{xgboost_params['min_child_weight']}.bin"
     bdt._Booster.save_model(str(fpath))
 
     results = bdt.evals_result()
@@ -310,25 +404,30 @@ def main(
     for bkgFrac in [0.3, 0.2, 0.1, 0.05, 0.01]:
         bkgIdx = np.argmin(np.abs(fprTest-bkgFrac))
         print(f"Bkg {100.*bkgFrac}% -> Sigeff = {100.*tprTest[bkgIdx]}, Thres = {thresTest[bkgIdx]}")
-        
-    fpath = output_dir / 'hadronicTopVSQCD_stat.dat'
-    fstat = open(fpath,'w')
-    fstat.write("%.3e; %.3e; %.5f; %.5f; %.3f; %.3f \n"%(
-        results['validation_0']['logloss'][-1],
-        results['validation_1']['logloss'][-1],
-        aucTrain, aucTest,
-        100.*accTrain, 100.*accTest
-    ))
-    fstat.close()
 
-    fpath = fpath = output_dir / 'hadronicTopVSQCD_lr.png'
-    draw_loss(fpath, results)
+    fpath = output_dir / f"hadronicTopVSQCD_stat_nTrees{xgboost_params['n_estimators']}_maxDepth{xgboost_params['max_depth']}_learningRate{xgboost_params['learning_rate']}_minChildWeight{xgboost_params['min_child_weight']}.csv"
+    
+    stats = {
+        'train_last_logloss': [results['validation_0']['logloss'][-1]], 'test_last_logloss': [results['validation_1']['logloss'][-1]],
+        'train_AUC': [aucTrain], 'test_AUC': [aucTest], 'train_accuracy': [100.*accTrain], 'test_accuracy': [100.*accTest],
+        'execution_time': [elapsed_time]
+    }
+    df_stats = pd.DataFrame(stats)
+    df_stats.to_csv(fpath, index=False)
+    print(f"Saving stats file: {fpath}")
 
-    fpath = fpath = output_dir / 'hadronicTopVSQCD_roc.png'
-    draw_roc(fpath, rates)
+    fpath = output_dir / f"hadronicTopVSQCD_lr_nTrees{xgboost_params['n_estimators']}_maxDepth{xgboost_params['max_depth']}_learningRate{xgboost_params['learning_rate']}_minChildWeight{xgboost_params['min_child_weight']}.png"
+    draw_loss(fpath, results, n_estimators=n_trees)
 
-    fpath = fpath = output_dir / 'hadronicTopVSQCD_dist.png'
+    fpath = output_dir / f"hadronicTopVSQCD_roc__nTrees{xgboost_params['n_estimators']}_maxDepth{xgboost_params['max_depth']}_learningRate{xgboost_params['learning_rate']}_minChildWeight{xgboost_params['min_child_weight']}.png"
+    draw_roc(fpath, rates, cut_based_efficiencies=cut_based_efficiencies)
+
+    fpath = output_dir / f"hadronicTopVSQCD_dist_nTrees{xgboost_params['n_estimators']}_maxDepth{xgboost_params['max_depth']}_learningRate{xgboost_params['learning_rate']}_minChildWeight{xgboost_params['min_child_weight']}.png"
     draw_score(fpath, predictions)
+
+
+
+#################################################
 
 def parse_args(argv: Optional[List[str]] = None):
     parser = ArgumentParser()
@@ -341,6 +440,15 @@ def parse_args(argv: Optional[List[str]] = None):
              "If not provided, takes the input dir.")
     parser.add_argument('--year', type=int, required=True,
         help='Year of the samples.')
+    # xgboost parameters
+    parser.add_argument('--n_trees', type=int, default=500,
+        help='Number of estimators.')
+    parser.add_argument('--learning_rate', type=float, default=.05,
+        help='Learning Rate.')
+    parser.add_argument('--max_depth', type=int, default=3,
+        help='Learning Rate.')
+    parser.add_argument('--min_child_weight', type=float, default=.01,
+        help='Learning Rate.')
 
     args = parser.parse_args(argv)
 
