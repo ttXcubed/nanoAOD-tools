@@ -16,14 +16,13 @@ function run_test()
     
     echo
     echo "==================== MC ==============="
-    python PhysicsTools/NanoAODTools/processors/ttX3.py --year 2017 --input=https://github.com/ttXcubed/test-files/raw/main/nanoAODv9UL/TTTo2L2Nu_HT500Njet7_TuneCP5_13TeV-powheg-pythia8_2017.root . || return 1
-
+    python PhysicsTools/NanoAODTools/processors/ttX3_hotvr.py --year 2018 --input=https://github.com/ttXcubed/test-files/raw/main/nanoAODv9UL/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8_2018_hotvr.root --maxEvents 1000 . || return 1
 
     echo "==================== data ==============="
-    python PhysicsTools/NanoAODTools/processors/ttX3.py --year 2017 --isData --input=https://github.com/ttXcubed/test-files/raw/main/nanoAODv9UL_data/MuonEG_Run2017B.root . || return 1
+    python PhysicsTools/NanoAODTools/processors/ttX3_hotvr.py --year 2018 --input=https://github.com/ttXcubed/test-files/raw/main/nanoAODv9UL_data/DoubleMuon_Run2018A_hotvr.root --isData --trigger mumu --maxEvents 1000 . || return 1
 
-    echo "==================== topNNRecoNtuples ==============="
-    python PhysicsTools/NanoAODTools/processors/topNNRecoNtuples.py --year 2017 --input=https://github.com/ttXcubed/test-files/raw/main/nanoAODv9UL/TTTo2L2Nu_HT500Njet7_TuneCP5_13TeV-powheg-pythia8_2017.root . || return 1
+    echo "==================== signal ==============="
+    python PhysicsTools/NanoAODTools/processors/ttX3_hotvr.py --year 2018 --input=https://github.com/ttXcubed/test-files/raw/main/nanoAODv9UL/TTZprimeToTT_M-2000_Width4_TuneCP5_13TeV-madgraph-pythia8_2018.root --isSignal --maxEvents 1000 . || return 1
 
     
     echo "==================== done ====================="

@@ -60,9 +60,13 @@ def deltaR(j1, j2):
         deltaPhi(j1.phi, j2.phi)**2
     )
 
+def deltaPt(j1,j2):
+	return abs((j1.pt-j2.pt)/j2.pt)
+
 
 def getHist(relFileName, histName):
-    rootFile = ROOT.TFile(os.path.expandvars("$CMSSW_BASE/src/"+relFileName))
+    #rootFile = ROOT.TFile(os.path.expandvars("$CMSSW_BASE/src/"+relFileName))
+    rootFile = ROOT.TFile(relFileName)
     hist = rootFile.Get(histName)
     if not hist:
         raise Exception("Hist file '"+histName +
@@ -74,7 +78,8 @@ def getHist(relFileName, histName):
 
 
 def getGraph(relFileName, graphName):
-    rootFile = ROOT.TFile(os.path.expandvars("$CMSSW_BASE/src/"+relFileName))
+    #rootFile = ROOT.TFile(os.path.expandvars("$CMSSW_BASE/src/"+relFileName))
+    rootFile = ROOT.TFile(relFileName)
     graph = rootFile.Get(graphName)
     if not graph:
         raise Exception("Graph file '"+graphName +
@@ -123,3 +128,27 @@ def getSFXY(hist, x, y):
 
     return hist.GetBinContent(xBin, yBin), hist.GetBinError(xBin, yBin)
 
+def processLabels(label):
+    process_labels = {
+        'TTTo2L2Nu': 'tt_dilepton', 'TTto2L2Nu': 'tt_dilepton',
+        'TTToSemiLeptonic': 'tt_semilepton', 'TTtoLNu2Q': 'tt_semilepton',
+        'DYJetsToLL_M-50': 'dy_m-50',
+        'DYJetsToLL_M-50_HT-70to100': 'dy_ht_100', 'DYJetsToLL_M-50_HT-100to200': 'dy_ht_200',
+        'DYJetsToLL_M-50_HT-200to400': 'dy_ht_400', 'DYJetsToLL_M-50_HT-400to600': 'dy_ht_600', 
+        'DYJetsToLL_M-50_HT-600to800': 'dy_ht_800', 'DYJetsToLL_M-50_HT-800to1200': 'dy_ht_1200',
+        'DYJetsToLL_M-50_HT-1200to2500': 'dy_ht_2500', 'DYJetsToLL_M-50_HT-2500toInf': 'dy_ht_inf',
+        'ttHTobb_M125': 'ttH_HTobb', 'ttHToNonbb_M125': 'ttH_HToNonbb', 
+        'TTH_Hto2B': 'ttH_HTobb',  'TTH_HtoNon2B': 'ttH_HToNonbb',
+        'ttWJets': 'ttWJets', 'ttZJets': 'ttZJets', 
+    }
+    MASS_VALUES = ['500', '750', '1000', '1250', '1500', '1750', '2000', '2500', '3000', '4000']
+    RELWIDTH_VALUES = ['4','10','20','50']
+
+    for mass in MASS_VALUES:
+        for relwidth in RELWIDTH_VALUES:
+            process_labels['TTZprimeToTT_M-{}_Width{}'.format(mass, relwidth)] = 'TTZprimeToTT_M-{}_Width{}'.format(mass, relwidth)
+
+    if label in process_labels.keys():
+        return process_labels[label]
+    else: 
+        return None

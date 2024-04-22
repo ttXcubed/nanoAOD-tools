@@ -96,8 +96,8 @@ class puWeightProducer(Module):
             self._worker_minus = ROOT.WeightCalculatorFromHistogram(
                 self.myh, self.targeth_minus, self.norm, self.fixLargeWeights,
                 self.verbose)
-            self.out.branch(self.outputName + "Up", "F")
-            self.out.branch(self.outputName + "Down", "F")
+            self.out.branch(self.outputName + "_up", "F")
+            self.out.branch(self.outputName + "_down", "F")
 
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
@@ -117,8 +117,8 @@ class puWeightProducer(Module):
             weight = 1
         self.out.fillBranch(self.outputName, weight)
         if self.doSysVar:
-            self.out.fillBranch(self.outputName + "Up", weight_plus)
-            self.out.fillBranch(self.outputName + "Down", weight_minus)
+            self.out.fillBranch(self.outputName + "_up", weight_plus)
+            self.out.fillBranch(self.outputName + "_down", weight_minus)
         self.weights.append(weight)
         return True
 
@@ -208,10 +208,25 @@ puWeight_UL2018 = lambda: puWeightProducer(pufile_mcUL2018,
 puAutoWeight_UL2018 = lambda: puWeightProducer(
     "auto", pufile_dataUL2018, "pu_mc", "pileup", verbose=False)
 
+# 2022 - 2022EE
+pufile_data2022 = "%s/src/PhysicsTools/NanoAODTools/data/pileup/PileupHistogram-2022-99bins_withVar.root" % os.environ['CMSSW_BASE']
+pufile_mc2022 = "%s/src/PhysicsTools/NanoAODTools/data/pileup/mcPileup2022.root" % os.environ['CMSSW_BASE']
+puWeight_2022 = lambda: puWeightProducer(pufile_mc2022,
+                                           pufile_data2022,
+                                           "pu_mc",
+                                           "pileup",
+                                           verbose=False,
+                                           doSysVar=True)
+puAutoWeight_2022 = lambda: puWeightProducer(
+    "auto", pufile_data2022, "pu_mc", "pileup", verbose=False)
+
+
 
 PUWeightProducer_dict = {
     '2016preVFP': puWeight_UL2016, #should be the same for 2016, to check
     '2016': puWeight_UL2016,
     '2017': puWeight_UL2017,
     '2018': puWeight_UL2018,
+    '2022': puWeight_2022,
+    '2022EE': puWeight_2022,
 }

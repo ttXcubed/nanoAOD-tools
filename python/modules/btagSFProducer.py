@@ -1,8 +1,10 @@
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
 import ROOT
-import os
+import os, re
 from itertools import chain
+
+from utils import getHist, getSFXY, processLabels
 
 ROOT.PyConfig.IgnoreCommandLineOptions = True
 
@@ -35,9 +37,9 @@ class btagSFProducer(Module):
     """
 
     def __init__(
-            self, era, algo='deepJet', selectedWPs=['shape_corr'],
+            self, era, algo='deepJet', selectedWPs=['L','M', 'T','shape_corr'],
             sfFileName=None, verbose=0, jesSystsForShape=["jes"],
-            nosyst = False
+            nosyst = False, efficiencyMaps = ''
     ):
         self.era = era
         self.algo = algo
@@ -47,9 +49,8 @@ class btagSFProducer(Module):
         self.nosyst = nosyst
         self.max_abs_eta = 2.5
         # define measurement type for each flavor
-        self.inputFilePath = os.environ['CMSSW_BASE'] + \
-            "/src/PhysicsTools/NanoAODTools/data/btagSF/"
-        self.inputFileName = sfFileName
+        self.sfFileName = sfFileName
+        self.efficiencyMaps = efficiencyMaps
         self.measurement_types = None
         self.supported_wp = None
         supported_btagSF = {
@@ -91,6 +92,24 @@ class btagSFProducer(Module):
                     },
                     'supported_wp': ["L", "M", "T", "shape_corr"]
                 },
+                '2022': {
+                    'inputFileName': "2022/btagging.json.gz",
+                    'measurement_types': {
+                        5: "comb",  # b
+                        4: "comb",  # c
+                        0: "light"   # light
+                    },
+                    'supported_wp': ["L", "M", "T", "shape_corr"]
+                },
+                '2022EE': {
+                    'inputFileName': "2022EE/btagging.json.gz",
+                    'measurement_types': {
+                        5: "comb",  # b
+                        4: "comb",  # c
+                        0: "light"   # light
+                    },
+                    'supported_wp': ["L", "M", "T", "shape_corr"]
+                },
             },
         }
 
@@ -100,8 +119,7 @@ class btagSFProducer(Module):
                 supported_algos.append(algo)
         if self.algo in list(supported_btagSF.keys()):
             if self.era in list(supported_btagSF[self.algo].keys()):
-                if self.inputFileName is None:
-                    self.inputFileName = supported_btagSF[self.algo][self.era]['inputFileName']
+                self.sfFileName = self.sfFileName + '/' + supported_btagSF[self.algo][self.era]['inputFileName']
                 self.measurement_types = supported_btagSF[self.algo][self.era]['measurement_types']
                 self.supported_wp = supported_btagSF[self.algo][self.era]['supported_wp']
             else:
@@ -117,11 +135,22 @@ class btagSFProducer(Module):
         
         # define systematic uncertainties
         self.systs = []
-        self.systs.append("up")
-        self.systs.append("down")
+        # --- FIXED WP
+
+        # single data era analysis
+        # self.central_and_systs = ["central"]
+        # self.systs.append("up")
+        # self.systs.append("down")
+        # if not self.nosyst:
+        #     self.central_and_systs.extend(self.systs_shape_corr)
+
+        # multiple data era analysis
         self.central_and_systs = ["central"]
         if not self.nosyst:
-            self.central_and_systs.extend(self.systs)
+            for syst in ['correlated', 'uncorrelated']: # additional uncertainties for fixed b-tagging WP: https://twiki.cern.ch/twiki/bin/viewauth/CMS/BtagRecommendation#Correlations_across_years_2016_2
+                self.central_and_systs.append("up_%s" % syst)
+                self.central_and_systs.append("down_%s" % syst)
+        # ---
 
         self.systs_shape_corr = []
         for syst in ['lf', 'hf',
@@ -140,17 +169,33 @@ class btagSFProducer(Module):
             if wp == 'shape_corr':
                 central_and_systs = self.central_and_systs_shape_corr
                 baseBranchName = 'btagEventWeight_{}_shape'.format(self.algo)
+                for central_or_syst in central_and_systs:
+                    branchNames[self.getSystForFwk(central_or_syst)] = baseBranchName + '_' + self.getSystForFwk(central_or_syst)
             else:
                 central_and_systs = self.central_and_systs
-                baseBranchName = 'Jet_btagSF_{}_{}'.format(self.algo, wp)
-            for central_or_syst in central_and_systs:
-                branchNames[self.getSystForFwk(central_or_syst)] = baseBranchName + '_' + self.getSystForFwk(central_or_syst)
+                for central_or_syst in central_and_systs:
+                    branchNames[self.getSystForFwk(central_or_syst)] = {}
+                    for flav in ['bc', 'light']:
+                        baseBranchName = 'btagSF{}_{}_{}'.format(flav, self.algo, wp)
+                        branchNames[self.getSystForFwk(central_or_syst)][flav] = baseBranchName + '_' + self.getSystForFwk(central_or_syst)
             self.branchNames_central_and_systs[wp] = branchNames
+
+        self.WP_LABEL = {
+            'T': 'tight', 'M': 'medium', 'L': 'loose'
+        }
+        self.efficiencyMapHist = {}
+        for wp in self.selectedWPs:
+            if wp != 'shape_corr':
+                self.efficiencyMapHist[self.WP_LABEL[wp]] = {}
+                for flavor in ['b', 'c', 'usdg']:
+                    self.efficiencyMapHist[self.WP_LABEL[wp]][flavor] = ROOT.TH2F()
 
     def beginJob(self):
         # initialize BTagCorrlibReader
         self.corrlibreader = ROOT.BTagCorrlibReader()
-        self.corrlibreader.loadCorrections(os.path.join(self.inputFilePath, self.inputFileName))
+        if not os.path.exists(self.sfFileName): 
+            raise ValueError("No SF files for b-tagging found in {}".format(self.sfFileName))
+        self.corrlibreader.loadCorrections(os.path.join(self.sfFileName))
         self.readers = {}
         for wp in self.selectedWPs:
             wp_btv = {"l": "L", "m": "M", "t": "T",
@@ -168,10 +213,50 @@ class btagSFProducer(Module):
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
-        for central_or_syst in list(self.branchNames_central_and_systs.values()):
-            for branch in list(central_or_syst.values()):
-                # self.out.branch(branch, "F", lenVar="nJet")
-                self.out.branch(branch, "F")
+
+        # --- this procedure to parse the process depends strongly on the output/input directory! modify it accordingly
+        process = ''
+        pattern = re.compile(r"/([^/]*?)_TuneCP5")
+        match = pattern.search(str(inputFile.GetName()))
+        if match: 
+            if processLabels(match.group(1)) == None:
+                process = match.group(1)
+            else: process = processLabels(match.group(1))
+            print('Process: {}'.format(process))
+        else:
+            pattern = re.compile(r"/([^/]*?)_MC")
+            match = pattern.search(str(outputFile.GetName()))
+            if match:
+                process = match.group(1)
+            else:
+                print('Process name not parsed.')
+        # ---
+
+        eff_file_path = os.path.join(self.efficiencyMaps, '{}_efficiencyMap.root'.format(process))
+        if not os.path.exists(eff_file_path): 
+            eff_file_path = os.path.join(self.efficiencyMaps, 'tt_dilepton_efficiencyMap.root'.format(process))
+            print('No b-tagging efficiency map found for the process --> using tt_dilepton efficiency map...')
+
+        for wp in self.selectedWPs:
+            if wp != 'shape_corr':
+                self.efficiencyMapHist[self.WP_LABEL[wp]] = {}
+                for flavor in ['b', 'c', 'udsg']:
+                    self.efficiencyMapHist[self.WP_LABEL[wp]][flavor] = getHist(
+                        eff_file_path,
+                        'efficiency_{}_{}'.format(flavor, self.WP_LABEL[wp])
+                    )
+
+        # very low flexibility --> it needs to be changed when both shape and fixed WP are required
+        if self.selectedWPs[0] == 'shape_corr' and len(self.selectedWPs) == 1:
+            for central_or_syst in list(self.branchNames_central_and_systs.values()):
+                for branch in list(central_or_syst.values()):
+                    # self.out.branch(branch, "F", lenVar="nJet")
+                    self.out.branch(branch, "F")
+        else:
+            for central_or_syst in list(self.branchNames_central_and_systs.values()):
+                for systematics_branches in list(central_or_syst.values()):
+                    for branch in list(systematics_branches.values()):
+                        self.out.branch(branch, "F")
 
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
@@ -189,7 +274,7 @@ class btagSFProducer(Module):
             return None
         return self.readers[wp_btv]
 
-    def getSFs(self, jet_data, syst, reader, measurement_type='auto', shape_corr=False):
+    def getSFs(self, jet_data, syst, reader, measurement_type='auto', wp='', shape_corr=False):
         if reader is None:
             if self.verbose > 0:
                 print("WARNING: Reader not available, setting b-tagging SF to -1!")
@@ -213,7 +298,11 @@ class btagSFProducer(Module):
                     sf = reader.evaluateBTagShape(self.algo+"_shape",
                         'central', flavor_btv, abs(eta), pt, discr)
             else:
-                sf = reader.evaluateBTagWorkingpoint(self.algo+"_"+self.measurement_types[flavor_btv],syst, self.selectedWPs, flavor_btv, abs(eta), pt)
+                if self.measurement_types[flavor_btv] == 'light' and 'correlated' in syst: #no up/down correlated SF for 2022, 2022EE -- 07/03/24
+                    sf = 1.
+                else:
+                    # print(self.algo+"_"+self.measurement_types[flavor_btv],syst, wp, flavor_btv, abs(eta), pt)
+                    sf = reader.evaluateBTagWorkingpoint(self.algo+"_"+self.measurement_types[flavor_btv],syst, wp, flavor_btv, abs(eta), pt)
             # check if SF is OK
             if sf < 0.01:
                 if self.verbose > 0:
@@ -221,6 +310,29 @@ class btagSFProducer(Module):
                         idx, pt, eta, discr, flavor_btv))
                 sf = 1.
             yield sf
+
+    def getEff(self, jet_data, syst, wp=''):
+        # retrieve efficiency from etaVSpt map calculated for each jet flavor/wp
+        for idx, (pt, eta, flavor_btv, discr) in enumerate(jet_data):
+            epsilon = 1.e-3
+            max_abs_eta = self.max_abs_eta
+            if eta <= -max_abs_eta:
+                eta = -max_abs_eta + epsilon
+            if eta >= +max_abs_eta:
+                eta = +max_abs_eta - epsilon
+
+            if flavor_btv == 5: flavor = 'b'
+            elif flavor_btv == 4: flavor = 'c'
+            else: flavor = 'udsg'
+
+            efficiency, efficiency_err = getSFXY(self.efficiencyMapHist[wp][flavor], pt, abs(eta))
+            if efficiency == 0.:
+                if self.verbose > 0:
+                    print("jet #%i: pT = %1.1f, eta = %1.1f, discr = %1.3f, flavor = %i" % (
+                        idx, pt, eta, discr, flavor_btv))
+                    print("No efficiency (pT, eta) available...")
+                efficiency, efficiency_err = 1., 1.
+            yield efficiency
 
     def analyze(self, event):
         """process event, return True (go to next module) or False (fail, go to next event)"""
@@ -244,20 +356,51 @@ class btagSFProducer(Module):
             central_and_systs = (
                 self.central_and_systs_shape_corr if isShape else self.central_and_systs)
             for central_or_syst in central_and_systs:
+                jet_collection = getattr(event,"selectedJets_nominal")
                 if self.isJESvariation(central_or_syst):
-                    preloaded_jets = [(jet.pt, jet.eta, jet.hadronFlavour, getattr(jet, discr)) 
-                                      for jet in getattr(event,"selectedJets_"+self.getSystForFwk(central_or_syst))]
-                else:
-                    preloaded_jets = [(jet.pt, jet.eta, jet.hadronFlavour, getattr(jet, discr))
-                                      for jet in getattr(event,"selectedJets_nominal")]
+                    jet_collection = getattr(event,"selectedJets_"+self.getSystForFwk(central_or_syst))
+                
+                preloaded_jets = [(jet.pt, jet.eta, jet.hadronFlavour, getattr(jet, discr)) 
+                                    for jet in jet_collection]
+                # print(central_or_syst, )
 
-                scale_factors = list(self.getSFs(
-                    preloaded_jets, central_or_syst, reader, 'auto', isShape))
-                ev_weight = 1.
-                for SF in scale_factors:
-                    ev_weight *= SF
-                self.out.fillBranch(
-                    self.branchNames_central_and_systs[wp][self.getSystForFwk(central_or_syst)], ev_weight)
+                if isShape:
+                    ev_weight = 1.
+                    scale_factors = list(self.getSFs(
+                    preloaded_jets, central_or_syst, reader, 'auto', wp, isShape))
+                    for SF in scale_factors:
+                        ev_weight *= SF
+
+                else: 
+                    ev_weight = {'bc': 1., 'light': 1.}
+                    efficiencies = list(self.getEff(
+                        preloaded_jets, central_or_syst, self.WP_LABEL[wp]))
+                    scale_factors = list(self.getSFs(
+                    preloaded_jets, central_or_syst, reader, 'auto', wp))
+
+                    data_weight = {'bc': 1., 'light': 1.}
+                    mc_weight = {'bc': 1., 'light': 1.} 
+                    # following the definition here: https://twiki.cern.ch/twiki/bin/view/CMS/BTagSFMethods#b_tagging_efficiency_in_MC_sampl
+                    # and https://twiki.cern.ch/twiki/bin/viewauth/CMS/BtagRecommendation#Correlations_across_years_2016_2
+
+                    for ijet, jet in enumerate(jet_collection): 
+                        flav = 'bc'
+                        if jet.hadronFlavour < 4: flav = 'light'
+
+                        if getattr(jet, "b_tagged_{}".format(self.WP_LABEL[wp])):
+                            data_weight[flav] *= (scale_factors[ijet] * efficiencies[ijet])
+                            mc_weight[flav] *= efficiencies[ijet]
+                        else:
+                            data_weight[flav] *= (1. - (scale_factors[ijet] * efficiencies[ijet]))
+                            mc_weight[flav] *= (1. - efficiencies[ijet])
+
+                    for flav in ['bc', 'light']:
+                        if mc_weight[flav] != 0.:
+                            ev_weight[flav] = data_weight[flav] / mc_weight[flav]
+                        else: ev_weight[flav] = 1.
+
+                        self.out.fillBranch(self.branchNames_central_and_systs[wp][self.getSystForFwk(central_or_syst, wp)][flav], ev_weight[flav])
+
         return True
 
     def isJESvariation(self,central_or_syst):
@@ -266,15 +409,21 @@ class btagSFProducer(Module):
                 return True
         return False
         
-    def getSystForFwk(self,syst):
+    def getSystForFwk(self, syst, wp='shape_coor'):
         if syst == 'central':
-            return 'nominal'
+            if wp != 'shape_corr':
+                return Module.globalOptions['year'] 
+            else:
+                return 'nominal'
         if 'fstats' in syst:
             syst += '_' + Module.globalOptions['year']
         if syst.startswith('up_'):
-            syst = syst.replace('up_','') + 'Up'
+            syst = syst.replace('up_','') + '_up'
         elif syst.startswith('down_'):
-            syst = syst.replace('down_','') + 'Down'
+            syst = syst.replace('down_','') + '_down'
         if syst == 'jesUp': syst = 'jesTotalUp'
         elif syst == 'jesDown': syst = 'jesTotalDown'
+        if syst == 'uncorrelated_up': syst = Module.globalOptions['year'] + '_up'
+        if syst == 'uncorrelated_down': syst = Module.globalOptions['year'] + '_down'
         return syst
+
